@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jaid.timity.MainViewModel
 import com.jaid.timity.MainViewModel.SyncState
 import com.jaid.timity.data.Holiday
+import com.jaid.timity.data.OvertimeMode
 import com.jaid.timity.data.Ramadan
 import com.jaid.timity.data.ThemeMode
 import com.jaid.timity.data.WorkPeriod
@@ -111,6 +112,39 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             isError = rateText.isNotEmpty() && rateText.toDoubleOrNull() == null,
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(Modifier.height(8.dp))
+        SectionLabel(stringResource(R.string.overtime_mode))
+        Spacer(Modifier.height(8.dp))
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            OvertimeMode.entries.forEachIndexed { i, mode ->
+                SegmentedButton(
+                    selected = settings.overtimeMode == mode,
+                    onClick = { vm.setOvertimeMode(mode) },
+                    shape = SegmentedButtonDefaults.itemShape(i, OvertimeMode.entries.size),
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) {
+                    Text(
+                        stringResource(
+                            when (mode) {
+                                OvertimeMode.OUTSIDE_WORKING_HOURS -> R.string.overtime_mode_outside
+                                OvertimeMode.BEYOND_STANDARD_HOURS -> R.string.overtime_mode_beyond
+                            },
+                        ),
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Hint(
+            stringResource(
+                when (settings.overtimeMode) {
+                    OvertimeMode.OUTSIDE_WORKING_HOURS -> R.string.overtime_mode_outside_hint
+                    OvertimeMode.BEYOND_STANDARD_HOURS -> R.string.overtime_mode_beyond_hint
+                },
+            ),
+        )
         Spacer(Modifier.height(16.dp))
         OutlinedTextField(
             value = hoursText,
@@ -121,6 +155,7 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             label = { Text(stringResource(R.string.standard_hours_label)) },
             supportingText = { Text(stringResource(R.string.standard_hours_hint)) },
             singleLine = true,
+            enabled = settings.overtimeMode == OvertimeMode.BEYOND_STANDARD_HOURS,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             isError = hoursText.isNotEmpty() && hoursText.toDoubleOrNull() == null,
             modifier = Modifier.fillMaxWidth(),

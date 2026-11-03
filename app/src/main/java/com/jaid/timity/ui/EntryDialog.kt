@@ -15,6 +15,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -45,12 +47,14 @@ fun EntryDialog(
     var date by remember { mutableStateOf(entry.clockIn.toLocalDate()) }
     var inTime by remember { mutableStateOf(entry.clockIn.toLocalDateTime().toLocalTime().withSecond(0).withNano(0)) }
     var outTime by remember { mutableStateOf(entry.clockOut?.toLocalDateTime()?.toLocalTime()?.withSecond(0)?.withNano(0)) }
+    var note by rememberSaveable { mutableStateOf(entry.note) }
 
     var pickDate by remember { mutableStateOf(false) }
     var pickIn by remember { mutableStateOf(false) }
     var pickOut by remember { mutableStateOf(false) }
+    val isOpenSession = entry.id != 0L && entry.clockOut == null
 
-    val outBeforeIn = outTime != null && !outTime!!.isAfter(inTime)
+    val outBeforeIn = outTime != null && outTime!!.isBefore(inTime)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -62,12 +66,20 @@ fun EntryDialog(
                 Spacer(Modifier.height(8.dp))
                 Field(stringResource(R.string.in_time), inTime.formatTime()) { pickIn = true }
                 Spacer(Modifier.height(8.dp))
-                Field(stringResource(R.string.out_time), outTime?.formatTime() ?: stringResource(R.string.still_open)) { pickOut = true }
+                Field(stringResource(R.string.out_time), outTime?.formatTime() ?: stringResource(if (isOpenSession) R.string.still_clocked_in else R.string.still_open)) { pickOut = true }
                 if (outTime != null) {
                     TextButton(onClick = { outTime = null }, modifier = Modifier.padding(top = 4.dp)) {
                         Text(stringResource(R.string.clear_out_time))
                     }
                 }
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text(stringResource(R.string.comment)) },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (outBeforeIn) {
                     Text(
                         stringResource(R.string.out_after_in),
@@ -86,6 +98,7 @@ fun EntryDialog(
                         entry.copy(
                             clockIn = date.atTime(inTime).toEpochMillis(),
                             clockOut = outTime?.let { date.atTime(it).toEpochMillis() },
+                            note = note.trim(),
                         ),
                     )
                 },

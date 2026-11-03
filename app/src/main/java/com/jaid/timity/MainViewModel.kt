@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.jaid.timity.data.AppDatabase
 import com.jaid.timity.data.Holiday
 import com.jaid.timity.data.HolidayApi
+import com.jaid.timity.data.OvertimeMode
 import com.jaid.timity.data.Rules
 import com.jaid.timity.data.WorkPeriod
 import com.jaid.timity.data.Settings
@@ -154,8 +155,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (openEntry.value == null) dao.insert(TimeEntry(clockIn = System.currentTimeMillis()))
     }
 
-    fun clockOut() = viewModelScope.launch {
-        openEntry.value?.let { dao.update(it.copy(clockOut = System.currentTimeMillis())) }
+    fun clockOut(note: String = "") = viewModelScope.launch {
+        openEntry.value?.let { dao.update(it.copy(clockOut = System.currentTimeMillis(), note = note.trim())) }
     }
 
     fun save(entry: TimeEntry) = viewModelScope.launch {
@@ -167,6 +168,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setOvertimeRate(rate: Double) = viewModelScope.launch { settingsRepo.setOvertimeRate(rate) }
     fun setStandardHours(hours: Double) = viewModelScope.launch { settingsRepo.setStandardHours(hours) }
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { settingsRepo.setTheme(mode) }
+    fun setOvertimeMode(mode: OvertimeMode) = viewModelScope.launch { settingsRepo.setOvertimeMode(mode) }
     fun setWorkWindow(startMinutes: Int, endMinutes: Int) =
         viewModelScope.launch { settingsRepo.setWorkWindow(startMinutes, endMinutes) }
 }

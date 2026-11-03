@@ -52,13 +52,21 @@ object Pay {
 
     fun isHoliday(entry: TimeEntry, rules: Rules): Boolean = rules.isDayOff(dateOf(entry))
 
-    /** Minutes beyond the day's standard for a single session. On a holiday every minute is overtime. */
+    /**
+     * Overtime for a single session. On a holiday or day off every minute is overtime; otherwise it depends on
+     * [Settings.overtimeMode]: time outside the working-hours window, or time beyond the standard day.
+     */
     fun overtimeMinutes(entry: TimeEntry, rules: Rules, now: Long = System.currentTimeMillis()): Long {
         val worked = workedMinutes(entry, now)
         val date = dateOf(entry)
         if (rules.isDayOff(date)) return worked
-        val standard = (rules.standardHours(date) * 60).toLong()
-        return max(0L, worked - standard)
+        return when (rules.settings.overtimeMode) {
+            OvertimeMode.OUTSIDE_WORKING_HOURS -> split(entry, rules, now).outsideMinutes
+            OvertimeMode.BEYOND_STANDARD_HOURS -> {
+                val standard = (rules.standardHours(date) * 60).toLong()
+                max(0L, worked - standard)
+            }
+        }
     }
 
     fun summarize(entries: List<TimeEntry>, rules: Rules, now: Long = System.currentTimeMillis()): Summary {

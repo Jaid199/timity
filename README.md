@@ -11,8 +11,8 @@ A minimal Android time tracker for one employee: clock in, clock out, and see ov
 
 ## Features
 
-- **Today**: one-tap clock in / clock out with a live elapsed timer and today's sessions.
-- **History**: filter by month or year, see hours worked, overtime hours, the hourly overtime rate and total overtime pay in MVR. Tap an entry to edit or delete it, or add one manually.
+- **Today**: one-tap clock in / clock out with a live elapsed timer and today's sessions. Clocking out asks for an optional comment. Tap any session to fix its times, edit the comment, or delete an accidental clock in.
+- **History**: filter by month or year, see hours worked, overtime hours, the hourly overtime rate and total overtime pay in MVR. Each entry shows its in and out times and comment. Tap one to edit or delete it, or add one manually.
 - **Reports**: overtime pay for the month or year, total and average hours, time worked inside vs outside your working-hours window, and a per-day (month) or per-month (year) breakdown.
 - **Settings**: overtime rate (MVR per hour), standard hours per day (anything beyond counts as overtime), working-hours window, System / Light / Dark theme, English / Dhivehi language, weekly days off (Friday and Saturday by default), and holidays.
 - **Ramadan hours**: tap + next to Working hours to add a period with its own window and standard day. The dates are pre-filled from the synced calendar's Ramadan Start and Eid al-Fitr entries. A period applies only between its dates and switches back to the default hours automatically; each one can also be switched off.
@@ -40,6 +40,11 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Overtime calculation
 
-For each session: `overtime = max(0, worked - standardHours)`, except on an enabled holiday or weekly day off, where `overtime = worked`. Overtime pay is `overtime hours x rate`. Totals on the History and Reports screens sum every session in the selected month or year.
+Two modes, chosen in Settings:
+
+- **Outside working hours** (default): overtime is any time before the working-hours window starts or after it ends, so clocking out after the end time counts straight away.
+- **Beyond standard day**: `overtime = max(0, worked - standardHours)`, whatever the clock times.
+
+On an enabled holiday or weekly day off, `overtime = worked` in both modes. Overtime pay is `overtime hours x rate`. Totals on the History and Reports screens sum every session in the selected month or year.
 
 Holiday data is fetched once per sync and stored locally; the app makes no other network requests.

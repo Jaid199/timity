@@ -16,11 +16,20 @@ import java.time.DayOfWeek
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** How overtime is measured on a normal working day. Holidays and days off are always fully overtime. */
+enum class OvertimeMode {
+    /** Any minute before the working-hours window starts or after it ends. Clocking out after 16:00 counts at once. */
+    OUTSIDE_WORKING_HOURS,
+    /** Minutes worked beyond the standard hours per day, whatever the clock times. */
+    BEYOND_STANDARD_HOURS,
+}
+
 data class Settings(
     /** Overtime pay per hour, in MVR. */
     val overtimeRate: Double = 0.0,
-    /** Hours per day before overtime starts. */
+    /** Hours per day before overtime starts; used by [OvertimeMode.BEYOND_STANDARD_HOURS]. */
     val standardHours: Double = 8.0,
+    val overtimeMode: OvertimeMode = OvertimeMode.OUTSIDE_WORKING_HOURS,
     val theme: ThemeMode = ThemeMode.SYSTEM,
     /** Working-hours window, as minutes from midnight. May wrap past midnight when start > end. */
     val workStart: Int = 9 * 60,
@@ -46,6 +55,7 @@ class SettingsRepository(context: Context) {
         val overtimeRate = doublePreferencesKey("overtime_rate")
         val standardHours = doublePreferencesKey("standard_hours")
         val theme = stringPreferencesKey("theme")
+        val overtimeMode = stringPreferencesKey("overtime_mode")
         val workStart = intPreferencesKey("work_start")
         val workEnd = intPreferencesKey("work_end")
         val holidayApiKey = stringPreferencesKey("holiday_api_key")
@@ -59,6 +69,8 @@ class SettingsRepository(context: Context) {
             standardHours = p[Keys.standardHours] ?: 8.0,
             theme = p[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: ThemeMode.SYSTEM,
+            overtimeMode = p[Keys.overtimeMode]?.let { runCatching { OvertimeMode.valueOf(it) }.getOrNull() }
+                ?: OvertimeMode.OUTSIDE_WORKING_HOURS,
             workStart = p[Keys.workStart] ?: 9 * 60,
             workEnd = p[Keys.workEnd] ?: 17 * 60,
             holidayApiKey = p[Keys.holidayApiKey] ?: "",
@@ -72,6 +84,7 @@ class SettingsRepository(context: Context) {
     suspend fun setOvertimeRate(rate: Double) = store.edit { it[Keys.overtimeRate] = rate }
     suspend fun setStandardHours(hours: Double) = store.edit { it[Keys.standardHours] = hours }
     suspend fun setTheme(mode: ThemeMode) = store.edit { it[Keys.theme] = mode.name }
+    suspend fun setOvertimeMode(mode: OvertimeMode) = store.edit { it[Keys.overtimeMode] = mode.name }
     suspend fun setHolidayApiKey(key: String) = store.edit { it[Keys.holidayApiKey] = key.trim() }
     suspend fun setWeekendDays(days: Set<DayOfWeek>) = store.edit { it[Keys.weekendDays] = days.map { d -> d.name }.toSet() }
     suspend fun setHolidaysSyncedAt(millis: Long) = store.edit { it[Keys.holidaysSyncedAt] = millis }

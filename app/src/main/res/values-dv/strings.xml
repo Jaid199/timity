@@ -16,6 +16,9 @@
     <string name="overtime">އޯވަރޓައިމް</string>
     <string name="ot_pay">އޯވަރޓައިމް އުޖޫރަ</string>
     <string name="now">މިހާރު</string>
+    <string name="comment">ކޮމެންޓު</string>
+    <string name="comment_prompt">މި ސެޝަނާ ބެހޭ ނޯޓެއް ލިޔޭ. ރެކޯޑުގައި ފެންނާނެ.</string>
+    <string name="clock_out_no_comment">ކޮމެންޓަކާ ނުލައި ނުކުންނަން</string>
 
     <string name="month">މަސް</string>
     <string name="year">އަހަރު</string>
@@ -26,6 +29,7 @@
     <string name="hourly_ot_rate">ގަޑިއަކަށް އޯވަރޓައިމް ރޭޓު</string>
     <string name="overtime_pay">އޯވަރޓައިމް އުޖޫރަ</string>
     <string name="open">ހުޅުވިފައި</string>
+    <string name="still_clocked_in">އަދި ވަދެފައި</string>
     <string name="ot_line">އޯވަރޓައިމް %1$s · %2$s</string>
     <string name="no_overtime">އޯވަރޓައިމެއް ނެތް</string>
     <string name="per_hour">%1$s/ގަޑި</string>
@@ -58,6 +62,11 @@
     <string name="settings">ސެޓިންގްސް</string>
     <string name="overtime_rate_label">އޯވަރޓައިމް ރޭޓު (ގަޑިއަކަށް MVR)</string>
     <string name="overtime_rate_hint">އާންމު ދުވަހުގެ ގަޑިތަކުގެ ފަހުން އަދި ބަންދު ދުވަސްތަކުގައި މަސައްކަތްކުރާ ކޮންމެ ގަޑިއަކަށް ދެވޭ.</string>
+    <string name="overtime_mode">އޯވަރޓައިމް ގުނާ ގޮތް</string>
+    <string name="overtime_mode_outside">މަސައްކަތު ގަޑީގެ ބޭރު</string>
+    <string name="overtime_mode_beyond">އާންމު ގަޑިތަކަށްވުރެ އިތުރު</string>
+    <string name="overtime_mode_outside_hint">މަސައްކަތު ގަޑި ފެށުމުގެ ކުރިން ނުވަތަ ނިމުމުގެ ފަހުން މަސައްކަތްކުރާ ވަގުތަކީ އޯވަރޓައިމް؛ ނިމޭ ގަޑީގެ ފަހުން ނުކުތުމުން ވަގުތުން ގުނަން ފަށާނެ.</string>
+    <string name="overtime_mode_beyond_hint">ގަޑިތަކަށް ނުބަލައި، ދުވަހަކަށް އާންމު ގަޑިތަކަށްވުރެ އިތުރަށް މަސައްކަތްކުރާ ވަގުތު އެކަނި އޯވަރޓައިމްގެ ގޮތުގައި ބެލެވޭނެ.</string>
     <string name="standard_hours_label">ދުވަހަކަށް އާންމު ގަޑި</string>
     <string name="standard_hours_hint">މިއަށްވުރެ އިތުރަށް މަސައްކަތްކުރާ ވަގުތު އޯވަރޓައިމްގެ ގޮތުގައި ބެލެވޭނެ.</string>
     <string name="working_hours">މަސައްކަތު ގަޑި</string>

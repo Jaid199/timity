@@ -160,8 +160,9 @@ private fun HistoryRow(e: TimeEntry, rules: Rules, onClick: () -> Unit) {
     val ot = Pay.overtimeMinutes(e, rules)
     val holiday = Pay.isHoliday(e, rules)
     val settings = rules.settings
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp)) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -172,7 +173,8 @@ private fun HistoryRow(e: TimeEntry, rules: Rules, onClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                "${e.clockIn.formatTime()}  –  ${e.clockOut?.formatTime() ?: stringResource(R.string.open)}",
+                stringResource(R.string.in_time) + " " + e.clockIn.formatTime() + "  ·  " +
+                    (e.clockOut?.let { stringResource(R.string.out_time) + " " + it.formatTime() } ?: stringResource(R.string.still_clocked_in)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -190,5 +192,7 @@ private fun HistoryRow(e: TimeEntry, rules: Rules, onClick: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+    NoteText(e.note)
     }
 }

@@ -12,7 +12,11 @@ class PayTest {
     private fun at(date: LocalDate, h: Int, m: Int = 0): Long =
         LocalDateTime.of(date, java.time.LocalTime.of(h, m)).atZone(zone).toInstant().toEpochMilli()
 
-    private val settings = Settings(overtimeRate = 50.0, standardHours = 8.0, workStart = 9 * 60, workEnd = 17 * 60)
+    private val settings = Settings(
+        overtimeRate = 50.0, standardHours = 8.0, workStart = 9 * 60, workEnd = 17 * 60,
+        overtimeMode = OvertimeMode.BEYOND_STANDARD_HOURS,
+    )
+    private val windowed = settings.copy(overtimeMode = OvertimeMode.OUTSIDE_WORKING_HOURS)
     private val monday = LocalDate.of(2026, 11, 2)
     private val friday = LocalDate.of(2026, 11, 6)
 
@@ -20,6 +24,17 @@ class PayTest {
     fun `normal day overtime is time past the standard`() {
         val e = TimeEntry(clockIn = at(monday, 9), clockOut = at(monday, 19, 30))
         assertEquals(150, Pay.overtimeMinutes(e, Rules(settings)))
+    }
+
+    @Test
+    fun `outside-hours mode counts from the moment the window ends`() {
+        val rules = Rules(windowed)
+        // 09:00-17:30: 30 minutes after the window.
+        assertEquals(30, Pay.overtimeMinutes(TimeEntry(clockIn = at(monday, 9), clockOut = at(monday, 17, 30)), rules))
+        // 10:00-16:00: inside the window, no overtime even though it is under 8 hours.
+        assertEquals(0, Pay.overtimeMinutes(TimeEntry(clockIn = at(monday, 10), clockOut = at(monday, 16)), rules))
+        // 08:00-18:00: an hour early and an hour late.
+        assertEquals(120, Pay.overtimeMinutes(TimeEntry(clockIn = at(monday, 8), clockOut = at(monday, 18)), rules))
     }
 
     @Test

@@ -18,6 +18,9 @@
     <string name="overtime">Overtime</string>
     <string name="ot_pay">OT pay</string>
     <string name="now">now</string>
+    <string name="comment">Comment</string>
+    <string name="comment_prompt">Add a note about this session. It shows up in History.</string>
+    <string name="clock_out_no_comment">Clock out without a comment</string>
 
     <!-- History -->
     <string name="month">Month</string>
@@ -29,6 +32,7 @@
     <string name="hourly_ot_rate">Hourly OT rate</string>
     <string name="overtime_pay">Overtime pay</string>
     <string name="open">open</string>
+    <string name="still_clocked_in">still clocked in</string>
     <string name="ot_line">OT %1$s · %2$s</string>
     <string name="no_overtime">no overtime</string>
     <string name="per_hour">%1$s/h</string>
@@ -64,6 +68,11 @@
     <string name="settings">Settings</string>
     <string name="overtime_rate_label">Overtime rate (MVR per hour)</string>
     <string name="overtime_rate_hint">Paid for every hour beyond the standard day, and for every hour on a holiday.</string>
+    <string name="overtime_mode">Overtime counts</string>
+    <string name="overtime_mode_outside">Outside working hours</string>
+    <string name="overtime_mode_beyond">Beyond standard day</string>
+    <string name="overtime_mode_outside_hint">Any time before the working hours start or after they end is overtime, so clocking out past the end time counts straight away.</string>
+    <string name="overtime_mode_beyond_hint">Only time beyond the standard hours per day is overtime, whatever the clock times.</string>
     <string name="standard_hours_label">Standard hours per day</string>
     <string name="standard_hours_hint">Time worked past this counts as overtime.</string>
     <string name="working_hours">Working hours</string>
