@@ -49,7 +49,8 @@ fun HistoryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val filter by vm.filter.collectAsStateWithLifecycle()
     val entries by vm.historyEntries.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
-    val summary = Pay.summarize(entries, settings)
+    val holidays by vm.holidayDates.collectAsStateWithLifecycle()
+    val summary = Pay.summarize(entries, settings, holidays)
 
     // null = dialog closed; id 0 = new entry; otherwise editing that entry.
     var editing by remember { mutableStateOf<TimeEntry?>(null) }
@@ -81,7 +82,7 @@ fun HistoryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
                 items(entries, key = { it.id }) { e ->
-                    HistoryRow(e, settings, onClick = { editing = e })
+                    HistoryRow(e, settings, holidays, onClick = { editing = e })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
@@ -154,8 +155,9 @@ private fun Summary(s: Pay.Summary, settings: Settings) {
 }
 
 @Composable
-private fun HistoryRow(e: TimeEntry, settings: Settings, onClick: () -> Unit) {
-    val ot = Pay.overtimeMinutes(e, settings)
+private fun HistoryRow(e: TimeEntry, settings: Settings, holidays: Set<java.time.LocalDate>, onClick: () -> Unit) {
+    val ot = Pay.overtimeMinutes(e, settings, holidays)
+    val holiday = Pay.isHoliday(e, settings, holidays)
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -163,7 +165,7 @@ private fun HistoryRow(e: TimeEntry, settings: Settings, onClick: () -> Unit) {
     ) {
         Column {
             Text(
-                e.clockIn.toLocalDate().formatDay(),
+                e.clockIn.toLocalDate().formatDay() + if (holiday) "  ·  Holiday" else "",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )

@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jaid.timity.data.AppDatabase
+import com.jaid.timity.data.Holiday
+import com.jaid.timity.data.HolidayApi
 import com.jaid.timity.data.Settings
 import com.jaid.timity.data.SettingsRepository
 import com.jaid.timity.data.ThemeMode
@@ -14,8 +16,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
@@ -55,6 +59,7 @@ data class HistoryFilter(
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val dao = AppDatabase.get(app).timeEntryDao()
+    private val holidayDao = AppDatabase.get(app).holidayDao()
     private val settingsRepo = SettingsRepository(app)
 
     val settings: StateFlow<Settings> = settingsRepo.settings
@@ -69,6 +74,57 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val end = LocalDate.now().plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         dao.between(start, end).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     }
+
+    val holidays: StateFlow<List<Holiday>> = holidayDao.all()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Dates on which all worked time is overtime. */
+    val holidayDates: StateFlow<Set<LocalDate>> = holidayDao.all()
+        .map { list -> list.filter { it.enabled }.map { it.date }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    sealed interface SyncState {
+        data object Idle : SyncState
+        data object Running : SyncState
+        data class Done(val added: Int, val total: Int) : SyncState
+        data class Failed(val message: String) : SyncState
+    }
+
+    private val _syncState = MutableStateFlow<SyncState>(SyncState.Idle)
+    val syncState: StateFlow<SyncState> = _syncState
+
+    /** Pull this year's and next year's Maldives holidays. Existing rows and their toggles are kept. */
+    fun syncHolidays() = viewModelScope.launch {
+        val key = settings.value.holidayApiKey
+        if (key.isBlank()) {
+            _syncState.value = SyncState.Failed("Enter your Calendarific API key first.")
+            return@launch
+        }
+        _syncState.value = SyncState.Running
+        val year = LocalDate.now().year
+        runCatching {
+            val fetched = HolidayApi.fetch(key, "MV", year) + HolidayApi.fetch(key, "MV", year + 1)
+            val ids = holidayDao.insertAll(fetched)
+            settingsRepo.setHolidaysSyncedAt(System.currentTimeMillis())
+            SyncState.Done(added = ids.count { it != -1L }, total = fetched.size)
+        }.onSuccess { _syncState.value = it }
+            .onFailure { _syncState.value = SyncState.Failed(it.message ?: it.javaClass.simpleName) }
+    }
+
+    fun addHoliday(date: LocalDate, name: String) = viewModelScope.launch {
+        holidayDao.insert(
+            Holiday(epochDay = date.toEpochDay(), name = name.trim(), type = "Custom", source = Holiday.SOURCE_CUSTOM, enabled = true),
+        )
+    }
+
+    fun updateHoliday(h: Holiday, date: LocalDate, name: String) = viewModelScope.launch {
+        holidayDao.update(h.copy(epochDay = date.toEpochDay(), name = name.trim()))
+    }
+
+    fun setHolidayEnabled(h: Holiday, enabled: Boolean) = viewModelScope.launch { holidayDao.update(h.copy(enabled = enabled)) }
+    fun deleteHoliday(h: Holiday) = viewModelScope.launch { holidayDao.delete(h) }
+    fun setWeekendDays(days: Set<DayOfWeek>) = viewModelScope.launch { settingsRepo.setWeekendDays(days) }
+    fun setHolidayApiKey(key: String) = viewModelScope.launch { settingsRepo.setHolidayApiKey(key) }
 
     private val _filter = MutableStateFlow(HistoryFilter())
     val filter: StateFlow<HistoryFilter> = _filter

@@ -23,10 +23,24 @@ object Pay {
         return max(0L, (end - entry.clockIn) / 60_000)
     }
 
-    /** Minutes beyond the daily standard for a single session. */
-    fun overtimeMinutes(entry: TimeEntry, settings: Settings, now: Long = System.currentTimeMillis()): Long {
+    /** True on a public/custom holiday or a weekly day off. */
+    fun isDayOff(date: LocalDate, settings: Settings, holidays: Set<LocalDate>): Boolean =
+        date.dayOfWeek in settings.weekendDays || date in holidays
+
+    fun isHoliday(entry: TimeEntry, settings: Settings, holidays: Set<LocalDate>, zone: ZoneId = ZoneId.systemDefault()): Boolean =
+        isDayOff(Instant.ofEpochMilli(entry.clockIn).atZone(zone).toLocalDate(), settings, holidays)
+
+    /** Minutes beyond the daily standard for a single session. On a holiday every minute is overtime. */
+    fun overtimeMinutes(
+        entry: TimeEntry,
+        settings: Settings,
+        holidays: Set<LocalDate> = emptySet(),
+        now: Long = System.currentTimeMillis(),
+    ): Long {
+        val worked = workedMinutes(entry, now)
+        if (isHoliday(entry, settings, holidays)) return worked
         val standard = (settings.standardHours * 60).toLong()
-        return max(0L, workedMinutes(entry, now) - standard)
+        return max(0L, worked - standard)
     }
 
     /** Minutes worked inside and outside the configured working-hours window. */
@@ -72,12 +86,17 @@ object Pay {
         }
     }
 
-    fun summarize(entries: List<TimeEntry>, settings: Settings, now: Long = System.currentTimeMillis()): Summary {
+    fun summarize(
+        entries: List<TimeEntry>,
+        settings: Settings,
+        holidays: Set<LocalDate> = emptySet(),
+        now: Long = System.currentTimeMillis(),
+    ): Summary {
         var worked = 0L
         var overtime = 0L
         for (e in entries) {
             worked += workedMinutes(e, now)
-            overtime += overtimeMinutes(e, settings, now)
+            overtime += overtimeMinutes(e, settings, holidays, now)
         }
         return Summary(worked, overtime, settings.overtimeRate)
     }

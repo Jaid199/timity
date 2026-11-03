@@ -38,6 +38,7 @@ fun HomeScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val open by vm.openEntry.collectAsStateWithLifecycle()
     val today by vm.todayEntries.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val holidays by vm.holidayDates.collectAsStateWithLifecycle()
 
     // Tick once a second while a session is open so the elapsed time stays live.
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -48,14 +49,15 @@ fun HomeScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         }
     }
 
-    val summary = Pay.summarize(today, settings, now)
+    val summary = Pay.summarize(today, settings, holidays, now)
+    val isHoliday = Pay.isDayOff(LocalDate.now(), settings, holidays)
 
     Column(
         modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
     ) {
         Spacer(Modifier.height(32.dp))
         Text(
-            LocalDate.now().formatDay(withYear = true),
+            LocalDate.now().formatDay(withYear = true) + if (isHoliday) "  ·  Holiday" else "",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

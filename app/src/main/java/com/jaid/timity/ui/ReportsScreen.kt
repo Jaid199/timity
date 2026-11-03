@@ -48,11 +48,12 @@ fun ReportsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val filter by vm.filter.collectAsStateWithLifecycle()
     val entries by vm.historyEntries.collectAsStateWithLifecycle()
     val settings by vm.settings.collectAsStateWithLifecycle()
+    val holidays by vm.holidayDates.collectAsStateWithLifecycle()
 
-    val summary = Pay.summarize(entries, settings)
+    val summary = Pay.summarize(entries, settings, holidays)
     val split = entries.fold(Pay.Split(0, 0)) { acc, e -> acc + Pay.split(e, settings) }
     val daysWorked = entries.map { it.clockIn.toLocalDate() }.distinct().size
-    val buckets = buckets(entries, settings, filter.period)
+    val buckets = buckets(entries, settings, holidays, filter.period)
 
     val insideColor = MaterialTheme.colorScheme.onBackground
     val outsideColor = MaterialTheme.colorScheme.outline
@@ -200,7 +201,7 @@ private fun BucketRow(b: Bucket, maxMinutes: Long, insideColor: Color, outsideCo
 private val dayLabel: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
 private val monthLabel: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM", Locale.getDefault())
 
-private fun buckets(entries: List<TimeEntry>, settings: Settings, period: Period): List<Bucket> {
+private fun buckets(entries: List<TimeEntry>, settings: Settings, holidays: Set<LocalDate>, period: Period): List<Bucket> {
     val keyOf: (TimeEntry) -> Comparable<*> = when (period) {
         Period.MONTH -> { e -> e.clockIn.toLocalDate() }
         Period.YEAR -> { e -> YearMonth.from(e.clockIn.toLocalDate()) }
@@ -210,7 +211,7 @@ private fun buckets(entries: List<TimeEntry>, settings: Settings, period: Period
         .toSortedMap(compareBy { it.toString() })
         .map { (key, group) ->
             val split = group.fold(Pay.Split(0, 0)) { acc, e -> acc + Pay.split(e, settings) }
-            val pay = Pay.summarize(group, settings).overtimePay
+            val pay = Pay.summarize(group, settings, holidays).overtimePay
             val label = when (key) {
                 is LocalDate -> key.format(dayLabel)
                 is YearMonth -> key.format(monthLabel)
