@@ -96,4 +96,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setOvertimeRate(rate: Double) = viewModelScope.launch { settingsRepo.setOvertimeRate(rate) }
     fun setStandardHours(hours: Double) = viewModelScope.launch { settingsRepo.setStandardHours(hours) }
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { settingsRepo.setTheme(mode) }
+    fun setWorkWindow(startMinutes: Int, endMinutes: Int) =
+        viewModelScope.launch { settingsRepo.setWorkWindow(startMinutes, endMinutes) }
 }

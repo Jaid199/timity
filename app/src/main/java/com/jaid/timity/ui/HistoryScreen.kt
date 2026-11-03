@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.jaid.timity.HistoryFilter
 import com.jaid.timity.MainViewModel
 import com.jaid.timity.Period
 import com.jaid.timity.data.Pay
@@ -56,41 +57,14 @@ fun HistoryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            SingleChoiceSegmentedButtonRow(Modifier.weight(1f)) {
-                Period.entries.forEachIndexed { i, p ->
-                    SegmentedButton(
-                        selected = filter.period == p,
-                        onClick = { vm.setFilter(filter.copy(period = p)) },
-                        shape = SegmentedButtonDefaults.itemShape(i, Period.entries.size),
-                        colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                        ),
-                    ) { Text(if (p == Period.MONTH) "Month" else "Year") }
-                }
-            }
+            PeriodToggle(filter, onChange = vm::setFilter, modifier = Modifier.weight(1f))
             IconButton(onClick = {
                 editing = TimeEntry(clockIn = LocalDate.now().atTime(9, 0).toEpochMillis(),
                     clockOut = LocalDate.now().atTime(17, 0).toEpochMillis())
             }) { Icon(Icons.Default.Add, contentDescription = "Add entry") }
         }
 
-        Row(
-            Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            IconButton(onClick = { vm.setFilter(filter.previous()) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous")
-            }
-            val label = when (filter.period) {
-                Period.MONTH -> "${Month.of(filter.month).getDisplayName(TextStyle.FULL, Locale.getDefault())} ${filter.year}"
-                Period.YEAR -> filter.year.toString()
-            }
-            Text(label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
-            IconButton(onClick = { vm.setFilter(filter.next()) }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
-            }
-        }
+        PeriodSelector(filter, onChange = vm::setFilter)
 
         Summary(summary, settings)
         Spacer(Modifier.height(16.dp))
@@ -121,6 +95,46 @@ fun HistoryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             onSave = { vm.save(it); editing = null },
             onDelete = if (e.id != 0L) ({ vm.delete(e); editing = null }) else null,
         )
+    }
+}
+
+/** Previous / label / next row for the month-or-year filter. */
+@Composable
+fun PeriodSelector(filter: HistoryFilter, onChange: (HistoryFilter) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        IconButton(onClick = { onChange(filter.previous()) }) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous")
+        }
+        Text(filter.label(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
+        IconButton(onClick = { onChange(filter.next()) }) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
+        }
+    }
+}
+
+fun HistoryFilter.label(): String = when (period) {
+    Period.MONTH -> "${Month.of(month).getDisplayName(TextStyle.FULL, Locale.getDefault())} $year"
+    Period.YEAR -> year.toString()
+}
+
+/** Month / Year toggle. */
+@Composable
+fun PeriodToggle(filter: HistoryFilter, onChange: (HistoryFilter) -> Unit, modifier: Modifier = Modifier) {
+    SingleChoiceSegmentedButtonRow(modifier) {
+        Period.entries.forEachIndexed { i, p ->
+            SegmentedButton(
+                selected = filter.period == p,
+                onClick = { onChange(filter.copy(period = p)) },
+                shape = SegmentedButtonDefaults.itemShape(i, Period.entries.size),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            ) { Text(if (p == Period.MONTH) "Month" else "Year") }
+        }
     }
 }
 

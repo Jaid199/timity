@@ -6,7 +6,8 @@ A minimal Android time tracker for one employee: clock in, clock out, and see ov
 
 - **Today**: one-tap clock in / clock out with a live elapsed timer and today's sessions.
 - **History**: filter by month or year, see hours worked, overtime hours, the hourly overtime rate and total overtime pay in MVR. Tap an entry to edit or delete it, or add one manually.
-- **Settings**: overtime rate (MVR per hour), standard hours per day (anything beyond counts as overtime), and System / Light / Dark theme.
+- **Reports**: overtime pay for the month or year, total and average hours, time worked inside vs outside your working-hours window, and a per-day (month) or per-month (year) breakdown.
+- **Settings**: overtime rate (MVR per hour), standard hours per day (anything beyond counts as overtime), working-hours window, and System / Light / Dark theme.
 
 ## Stack
 
