@@ -1,5 +1,7 @@
 package com.jaid.timity.ui
 
+import com.jaid.timity.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,22 +55,22 @@ fun EntryDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surface,
-        title = { Text(if (entry.id == 0L) "Add entry" else "Edit entry") },
+        title = { Text(stringResource(if (entry.id == 0L) R.string.add_entry else R.string.edit_entry)) },
         text = {
             Column {
-                Field("Date", date.formatDay(withYear = true)) { pickDate = true }
+                Field(stringResource(R.string.date), date.formatDay(withYear = true)) { pickDate = true }
                 Spacer(Modifier.height(8.dp))
-                Field("In", inTime.formatTime()) { pickIn = true }
+                Field(stringResource(R.string.in_time), inTime.formatTime()) { pickIn = true }
                 Spacer(Modifier.height(8.dp))
-                Field("Out", outTime?.formatTime() ?: "still open") { pickOut = true }
+                Field(stringResource(R.string.out_time), outTime?.formatTime() ?: stringResource(R.string.still_open)) { pickOut = true }
                 if (outTime != null) {
                     TextButton(onClick = { outTime = null }, modifier = Modifier.padding(top = 4.dp)) {
-                        Text("Clear out time")
+                        Text(stringResource(R.string.clear_out_time))
                     }
                 }
                 if (outBeforeIn) {
                     Text(
-                        "Out time must be after in time.",
+                        stringResource(R.string.out_after_in),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 8.dp),
@@ -87,16 +89,16 @@ fun EntryDialog(
                         ),
                     )
                 },
-            ) { Text("Save") }
+            ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
             Row {
                 if (onDelete != null) {
                     TextButton(onClick = onDelete) {
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                        Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                     }
                 }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         },
     )
@@ -113,9 +115,9 @@ fun EntryDialog(
                         date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
                     }
                     pickDate = false
-                }) { Text("OK") }
+                }) { Text(stringResource(R.string.ok)) }
             },
-            dismissButton = { TextButton(onClick = { pickDate = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { pickDate = false }) { Text(stringResource(R.string.cancel)) } },
         ) { DatePicker(state = state) }
     }
 
@@ -148,8 +150,8 @@ fun TimeDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (LocalTime) ->
         containerColor = MaterialTheme.colorScheme.surface,
         text = { TimePicker(state = state) },
         confirmButton = {
-            TextButton(onClick = { onPick(LocalTime.of(state.hour, state.minute)) }) { Text("OK") }
+            TextButton(onClick = { onPick(LocalTime.of(state.hour, state.minute)) }) { Text(stringResource(R.string.ok)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }

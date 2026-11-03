@@ -1,7 +1,8 @@
 <resources>
-    <style name="Theme.Timity" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.Timity" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">#FF0F0F0F</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>

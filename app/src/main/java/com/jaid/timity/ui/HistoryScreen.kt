@@ -1,5 +1,7 @@
 package com.jaid.timity.ui
 
+import com.jaid.timity.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,20 +39,19 @@ import com.jaid.timity.HistoryFilter
 import com.jaid.timity.MainViewModel
 import com.jaid.timity.Period
 import com.jaid.timity.data.Pay
+import com.jaid.timity.data.Rules
 import com.jaid.timity.data.Settings
 import com.jaid.timity.data.TimeEntry
 import java.time.LocalDate
 import java.time.Month
 import java.time.format.TextStyle
-import java.util.Locale
 
 @Composable
 fun HistoryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val filter by vm.filter.collectAsStateWithLifecycle()
     val entries by vm.historyEntries.collectAsStateWithLifecycle()
-    val settings by vm.settings.collectAsStateWithLifecycle()
-    val holidays by vm.holidayDates.collectAsStateWithLifecycle()
-    val summary = Pay.summarize(entries, settings, holidays)
+    val rules by vm.rules.collectAsStateWithLifecycle()
+    val summary = Pay.summarize(entries, rules)
 
     // null = dialog closed; id 0 = new entry; otherwise editing that entry.
     var editing by remember { mutableStateOf<TimeEntry?>(null) }
@@ -62,19 +63,19 @@ fun HistoryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             IconButton(onClick = {
                 editing = TimeEntry(clockIn = LocalDate.now().atTime(9, 0).toEpochMillis(),
                     clockOut = LocalDate.now().atTime(17, 0).toEpochMillis())
-            }) { Icon(Icons.Default.Add, contentDescription = "Add entry") }
+            }) { Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_entry)) }
         }
 
         PeriodSelector(filter, onChange = vm::setFilter)
 
-        Summary(summary, settings)
+        Summary(summary, rules.settings)
         Spacer(Modifier.height(16.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         if (entries.isEmpty()) {
             Spacer(Modifier.height(48.dp))
             Text(
-                "No entries for this period.",
+                stringResource(R.string.no_entries),
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -82,7 +83,7 @@ fun HistoryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         } else {
             LazyColumn(Modifier.fillMaxSize()) {
                 items(entries, key = { it.id }) { e ->
-                    HistoryRow(e, settings, holidays, onClick = { editing = e })
+                    HistoryRow(e, rules, onClick = { editing = e })
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
@@ -108,17 +109,17 @@ fun PeriodSelector(filter: HistoryFilter, onChange: (HistoryFilter) -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         IconButton(onClick = { onChange(filter.previous()) }) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous")
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous))
         }
         Text(filter.label(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium)
         IconButton(onClick = { onChange(filter.next()) }) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = stringResource(R.string.next))
         }
     }
 }
 
 fun HistoryFilter.label(): String = when (period) {
-    Period.MONTH -> "${Month.of(month).getDisplayName(TextStyle.FULL, Locale.getDefault())} $year"
+    Period.MONTH -> "${Month.of(month).getDisplayName(TextStyle.FULL, AppLocale.current)} $year"
     Period.YEAR -> year.toString()
 }
 
@@ -134,7 +135,7 @@ fun PeriodToggle(filter: HistoryFilter, onChange: (HistoryFilter) -> Unit, modif
                 colors = SegmentedButtonDefaults.colors(
                     activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
                 ),
-            ) { Text(if (p == Period.MONTH) "Month" else "Year") }
+            ) { Text(stringResource(if (p == Period.MONTH) R.string.month else R.string.year)) }
         }
     }
 }
@@ -143,21 +144,22 @@ fun PeriodToggle(filter: HistoryFilter, onChange: (HistoryFilter) -> Unit, modif
 private fun Summary(s: Pay.Summary, settings: Settings) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Stat("Worked", formatHours(s.workedHours))
-            Stat("Overtime", formatHours(s.overtimeHours), alignEnd = true)
+            Stat(stringResource(R.string.worked), formatHours(s.workedHours))
+            Stat(stringResource(R.string.overtime), formatHours(s.overtimeHours), alignEnd = true)
         }
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Stat("Hourly OT rate", formatMvr(settings.overtimeRate) + "/h")
-            Stat("Overtime pay", formatMvr(s.overtimePay), alignEnd = true)
+            Stat(stringResource(R.string.hourly_ot_rate), stringResource(R.string.per_hour, formatMvr(settings.overtimeRate)))
+            Stat(stringResource(R.string.overtime_pay), formatMvr(s.overtimePay), alignEnd = true)
         }
     }
 }
 
 @Composable
-private fun HistoryRow(e: TimeEntry, settings: Settings, holidays: Set<java.time.LocalDate>, onClick: () -> Unit) {
-    val ot = Pay.overtimeMinutes(e, settings, holidays)
-    val holiday = Pay.isHoliday(e, settings, holidays)
+private fun HistoryRow(e: TimeEntry, rules: Rules, onClick: () -> Unit) {
+    val ot = Pay.overtimeMinutes(e, rules)
+    val holiday = Pay.isHoliday(e, rules)
+    val settings = rules.settings
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -165,12 +167,12 @@ private fun HistoryRow(e: TimeEntry, settings: Settings, holidays: Set<java.time
     ) {
         Column {
             Text(
-                e.clockIn.toLocalDate().formatDay() + if (holiday) "  ·  Holiday" else "",
+                e.clockIn.toLocalDate().formatDay() + if (holiday) "  ·  " + stringResource(R.string.holiday) else "",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                "${e.clockIn.formatTime()}  –  ${e.clockOut?.formatTime() ?: "open"}",
+                "${e.clockIn.formatTime()}  –  ${e.clockOut?.formatTime() ?: stringResource(R.string.open)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -182,7 +184,8 @@ private fun HistoryRow(e: TimeEntry, settings: Settings, holidays: Set<java.time
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                if (ot > 0) "OT ${formatDuration(ot)} · ${formatMvr(ot / 60.0 * settings.overtimeRate)}" else "no overtime",
+                if (ot > 0) stringResource(R.string.ot_line, formatDuration(ot), formatMvr(ot / 60.0 * settings.overtimeRate))
+                else stringResource(R.string.no_overtime),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

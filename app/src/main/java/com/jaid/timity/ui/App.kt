@@ -1,5 +1,7 @@
 package com.jaid.timity.ui
 
+import com.jaid.timity.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DateRange
@@ -25,11 +27,11 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 import com.jaid.timity.MainViewModel
 
-private enum class Tab(val label: String, val icon: ImageVector) {
-    HOME("Today", Icons.Outlined.Home),
-    HISTORY("History", Icons.Outlined.DateRange),
-    REPORTS("Reports", BarChartIcon),
-    SETTINGS("Settings", Icons.Outlined.Settings),
+private enum class Tab(val label: Int, val icon: ImageVector) {
+    HOME(R.string.tab_today, Icons.Outlined.Home),
+    HISTORY(R.string.tab_history, Icons.Outlined.DateRange),
+    REPORTS(R.string.tab_reports, BarChartIcon),
+    SETTINGS(R.string.tab_settings, Icons.Outlined.Settings),
 }
 
 @Composable
@@ -43,8 +45,8 @@ fun App(vm: MainViewModel) {
                     NavigationBarItem(
                         selected = tab == t,
                         onClick = { tab = t },
-                        icon = { Icon(t.icon, contentDescription = t.label) },
-                        label = { Text(t.label) },
+                        icon = { Icon(t.icon, contentDescription = stringResource(t.label)) },
+                        label = { Text(stringResource(t.label)) },
                         colors = NavigationBarItemDefaults.colors(
                             indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                         ),

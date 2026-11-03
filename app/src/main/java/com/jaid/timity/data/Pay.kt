@@ -6,6 +6,24 @@ import java.time.ZoneId
 import kotlin.math.max
 import kotlin.math.min
 
+/** Everything needed to judge a day: base settings, holidays, and special periods like Ramadan. */
+data class Rules(
+    val settings: Settings = Settings(),
+    val holidays: Set<LocalDate> = emptySet(),
+    val periods: List<WorkPeriod> = emptyList(),
+) {
+    fun periodFor(date: LocalDate): WorkPeriod? = periods.firstOrNull { it.enabled && it.contains(date) }
+
+    fun standardHours(date: LocalDate): Double = periodFor(date)?.standardHours ?: settings.standardHours
+
+    /** Working-hours window for the day as minutes from midnight (start, end). */
+    fun window(date: LocalDate): Pair<Int, Int> =
+        periodFor(date)?.let { it.workStart to it.workEnd } ?: (settings.workStart to settings.workEnd)
+
+    /** True on a public/custom holiday or a weekly day off. */
+    fun isDayOff(date: LocalDate): Boolean = date.dayOfWeek in settings.weekendDays || date in holidays
+}
+
 /** Pure overtime arithmetic, kept separate from UI and storage. */
 object Pay {
     data class Summary(
@@ -18,40 +36,44 @@ object Pay {
         val overtimePay: Double get() = overtimeHours * overtimeRate
     }
 
-    fun workedMinutes(entry: TimeEntry, now: Long = System.currentTimeMillis()): Long {
-        val end = entry.clockOut ?: now
-        return max(0L, (end - entry.clockIn) / 60_000)
-    }
-
-    /** True on a public/custom holiday or a weekly day off. */
-    fun isDayOff(date: LocalDate, settings: Settings, holidays: Set<LocalDate>): Boolean =
-        date.dayOfWeek in settings.weekendDays || date in holidays
-
-    fun isHoliday(entry: TimeEntry, settings: Settings, holidays: Set<LocalDate>, zone: ZoneId = ZoneId.systemDefault()): Boolean =
-        isDayOff(Instant.ofEpochMilli(entry.clockIn).atZone(zone).toLocalDate(), settings, holidays)
-
-    /** Minutes beyond the daily standard for a single session. On a holiday every minute is overtime. */
-    fun overtimeMinutes(
-        entry: TimeEntry,
-        settings: Settings,
-        holidays: Set<LocalDate> = emptySet(),
-        now: Long = System.currentTimeMillis(),
-    ): Long {
-        val worked = workedMinutes(entry, now)
-        if (isHoliday(entry, settings, holidays)) return worked
-        val standard = (settings.standardHours * 60).toLong()
-        return max(0L, worked - standard)
-    }
-
-    /** Minutes worked inside and outside the configured working-hours window. */
+    /** Minutes worked inside and outside the working-hours window. */
     data class Split(val insideMinutes: Long, val outsideMinutes: Long) {
         val total: Long get() = insideMinutes + outsideMinutes
         operator fun plus(o: Split) = Split(insideMinutes + o.insideMinutes, outsideMinutes + o.outsideMinutes)
     }
 
+    fun dateOf(entry: TimeEntry, zone: ZoneId = ZoneId.systemDefault()): LocalDate =
+        Instant.ofEpochMilli(entry.clockIn).atZone(zone).toLocalDate()
+
+    fun workedMinutes(entry: TimeEntry, now: Long = System.currentTimeMillis()): Long {
+        val end = entry.clockOut ?: now
+        return max(0L, (end - entry.clockIn) / 60_000)
+    }
+
+    fun isHoliday(entry: TimeEntry, rules: Rules): Boolean = rules.isDayOff(dateOf(entry))
+
+    /** Minutes beyond the day's standard for a single session. On a holiday every minute is overtime. */
+    fun overtimeMinutes(entry: TimeEntry, rules: Rules, now: Long = System.currentTimeMillis()): Long {
+        val worked = workedMinutes(entry, now)
+        val date = dateOf(entry)
+        if (rules.isDayOff(date)) return worked
+        val standard = (rules.standardHours(date) * 60).toLong()
+        return max(0L, worked - standard)
+    }
+
+    fun summarize(entries: List<TimeEntry>, rules: Rules, now: Long = System.currentTimeMillis()): Summary {
+        var worked = 0L
+        var overtime = 0L
+        for (e in entries) {
+            worked += workedMinutes(e, now)
+            overtime += overtimeMinutes(e, rules, now)
+        }
+        return Summary(worked, overtime, rules.settings.overtimeRate)
+    }
+
     fun split(
         entry: TimeEntry,
-        settings: Settings,
+        rules: Rules,
         now: Long = System.currentTimeMillis(),
         zone: ZoneId = ZoneId.systemDefault(),
     ): Split {
@@ -63,7 +85,7 @@ object Pay {
         var day = Instant.ofEpochMilli(start).atZone(zone).toLocalDate()
         val lastDay = Instant.ofEpochMilli(end).atZone(zone).toLocalDate()
         while (!day.isAfter(lastDay)) {
-            for ((wStart, wEnd) in windowsOn(day, settings, zone)) {
+            for ((wStart, wEnd) in windowsOn(day, rules, zone)) {
                 val overlap = min(end, wEnd) - max(start, wStart)
                 if (overlap > 0) inside += overlap
             }
@@ -75,29 +97,15 @@ object Pay {
     }
 
     /** The working-hours window(s) on one calendar day, as epoch-millis ranges. Two when it wraps midnight. */
-    private fun windowsOn(day: LocalDate, settings: Settings, zone: ZoneId): List<Pair<Long, Long>> {
+    private fun windowsOn(day: LocalDate, rules: Rules, zone: ZoneId): List<Pair<Long, Long>> {
+        val (startMin, endMin) = rules.window(day)
         val midnight = day.atStartOfDay(zone)
         fun at(minutes: Int) = midnight.plusMinutes(minutes.toLong()).toInstant().toEpochMilli()
         val nextMidnight = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         return when {
-            settings.workStart == settings.workEnd -> emptyList()
-            settings.workStart < settings.workEnd -> listOf(at(settings.workStart) to at(settings.workEnd))
-            else -> listOf(midnight.toInstant().toEpochMilli() to at(settings.workEnd), at(settings.workStart) to nextMidnight)
+            startMin == endMin -> emptyList()
+            startMin < endMin -> listOf(at(startMin) to at(endMin))
+            else -> listOf(midnight.toInstant().toEpochMilli() to at(endMin), at(startMin) to nextMidnight)
         }
-    }
-
-    fun summarize(
-        entries: List<TimeEntry>,
-        settings: Settings,
-        holidays: Set<LocalDate> = emptySet(),
-        now: Long = System.currentTimeMillis(),
-    ): Summary {
-        var worked = 0L
-        var overtime = 0L
-        for (e in entries) {
-            worked += workedMinutes(e, now)
-            overtime += overtimeMinutes(e, settings, holidays, now)
-        }
-        return Summary(worked, overtime, settings.overtimeRate)
     }
 }

@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.jaid.timity.data.AppDatabase
 import com.jaid.timity.data.Holiday
 import com.jaid.timity.data.HolidayApi
+import com.jaid.timity.data.Rules
+import com.jaid.timity.data.WorkPeriod
 import com.jaid.timity.data.Settings
 import com.jaid.timity.data.SettingsRepository
 import com.jaid.timity.data.ThemeMode
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -60,6 +63,7 @@ data class HistoryFilter(
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val dao = AppDatabase.get(app).timeEntryDao()
     private val holidayDao = AppDatabase.get(app).holidayDao()
+    private val periodDao = AppDatabase.get(app).workPeriodDao()
     private val settingsRepo = SettingsRepository(app)
 
     val settings: StateFlow<Settings> = settingsRepo.settings
@@ -83,10 +87,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         .map { list -> list.filter { it.enabled }.map { it.date }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
+    val periods: StateFlow<List<WorkPeriod>> = periodDao.all()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Settings, holidays and special periods bundled for the pay calculator. */
+    val rules: StateFlow<Rules> = combine(settings, holidayDates, periods) { s, h, p -> Rules(s, h, p) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Rules())
+
+    fun savePeriod(p: WorkPeriod) = viewModelScope.launch { if (p.id == 0L) periodDao.insert(p) else periodDao.update(p) }
+    fun deletePeriod(p: WorkPeriod) = viewModelScope.launch { periodDao.delete(p) }
+
     sealed interface SyncState {
         data object Idle : SyncState
         data object Running : SyncState
         data class Done(val added: Int, val total: Int) : SyncState
+        data object MissingKey : SyncState
         data class Failed(val message: String) : SyncState
     }
 
@@ -97,7 +112,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun syncHolidays() = viewModelScope.launch {
         val key = settings.value.holidayApiKey
         if (key.isBlank()) {
-            _syncState.value = SyncState.Failed("Enter your Calendarific API key first.")
+            _syncState.value = SyncState.MissingKey
             return@launch
         }
         _syncState.value = SyncState.Running

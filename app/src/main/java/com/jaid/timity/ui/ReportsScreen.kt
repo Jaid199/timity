@@ -1,5 +1,7 @@
 package com.jaid.timity.ui
 
+import com.jaid.timity.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,13 +34,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jaid.timity.MainViewModel
 import com.jaid.timity.Period
 import com.jaid.timity.data.Pay
-import com.jaid.timity.data.Settings
+import com.jaid.timity.data.Rules
 import com.jaid.timity.data.TimeEntry
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.YearMonth
-import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /** One row of the breakdown list: a day in month view, a month in year view. */
 private data class Bucket(val label: String, val split: Pay.Split, val overtimePay: Double)
@@ -47,13 +47,17 @@ private data class Bucket(val label: String, val split: Pay.Split, val overtimeP
 fun ReportsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val filter by vm.filter.collectAsStateWithLifecycle()
     val entries by vm.historyEntries.collectAsStateWithLifecycle()
-    val settings by vm.settings.collectAsStateWithLifecycle()
-    val holidays by vm.holidayDates.collectAsStateWithLifecycle()
+    val rules by vm.rules.collectAsStateWithLifecycle()
+    val settings = rules.settings
 
-    val summary = Pay.summarize(entries, settings, holidays)
-    val split = entries.fold(Pay.Split(0, 0)) { acc, e -> acc + Pay.split(e, settings) }
+    val summary = Pay.summarize(entries, rules)
+    val split = entries.fold(Pay.Split(0, 0)) { acc, e -> acc + Pay.split(e, rules) }
     val daysWorked = entries.map { it.clockIn.toLocalDate() }.distinct().size
-    val buckets = buckets(entries, settings, holidays, filter.period)
+    val buckets = buckets(entries, rules, filter.period)
+    val range = filter.range()
+    val activePeriods = rules.periods.filter { p ->
+        p.enabled && p.end.toEpochDay() >= range.first.toLocalDate().toEpochDay() && p.start.toEpochDay() <= range.last.toLocalDate().toEpochDay()
+    }
 
     val insideColor = MaterialTheme.colorScheme.onBackground
     val outsideColor = MaterialTheme.colorScheme.outline
@@ -66,7 +70,7 @@ fun ReportsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             Spacer(Modifier.height(8.dp))
 
             // Hero number: overtime pay.
-            Text("Overtime pay", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.overtime_pay), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
                 formatMvr(summary.overtimePay),
                 fontSize = 40.sp,
@@ -74,17 +78,17 @@ fun ReportsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                 color = MaterialTheme.colorScheme.onBackground,
             )
             Text(
-                "${formatHours(summary.overtimeHours)} overtime at ${formatMvr(settings.overtimeRate)}/h",
+                stringResource(R.string.overtime_summary, formatHours(summary.overtimeHours), formatMvr(settings.overtimeRate)),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(24.dp))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Stat("Total worked", formatDuration(summary.workedMinutes))
-                Stat("Days", daysWorked.toString())
+                Stat(stringResource(R.string.total_worked), formatDuration(summary.workedMinutes))
+                Stat(stringResource(R.string.days), daysWorked.toString())
                 Stat(
-                    "Avg / day",
+                    stringResource(R.string.avg_per_day),
                     if (daysWorked == 0) "–" else formatDuration(summary.workedMinutes / daysWorked),
                     alignEnd = true,
                 )
@@ -94,18 +98,19 @@ fun ReportsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             // Inside vs outside working hours.
             val window = "${LocalTime.ofSecondOfDay(settings.workStart * 60L).formatTime()} – " +
                 LocalTime.ofSecondOfDay(settings.workEnd * 60L).formatTime()
-            Text("Working hours $window", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val periodNote = if (activePeriods.isEmpty()) "" else "  ·  " + stringResource(R.string.hours_applied, activePeriods.joinToString { it.name })
+            Text(stringResource(R.string.working_hours_range, window) + periodNote, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(12.dp))
             SplitBar(split, insideColor, outsideColor, height = 12.dp)
             Spacer(Modifier.height(12.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                LegendStat("Within hours", split.insideMinutes, split.total, insideColor)
-                LegendStat("Outside hours", split.outsideMinutes, split.total, outsideColor, alignEnd = true)
+                LegendStat(stringResource(R.string.within_hours), split.insideMinutes, split.total, insideColor)
+                LegendStat(stringResource(R.string.outside_hours), split.outsideMinutes, split.total, outsideColor, alignEnd = true)
             }
             Spacer(Modifier.height(28.dp))
 
             Text(
-                if (filter.period == Period.MONTH) "By day" else "By month",
+                stringResource(if (filter.period == Period.MONTH) R.string.by_day else R.string.by_month),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -114,7 +119,7 @@ fun ReportsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             if (buckets.isEmpty()) {
                 Spacer(Modifier.height(32.dp))
                 Text(
-                    "No entries for this period.",
+                    stringResource(R.string.no_entries),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -191,17 +196,15 @@ private fun BucketRow(b: Bucket, maxMinutes: Long, insideColor: Color, outsideCo
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "${formatDuration(b.split.insideMinutes)} in  ·  ${formatDuration(b.split.outsideMinutes)} out",
+            stringResource(R.string.in_out_line, formatDuration(b.split.insideMinutes), formatDuration(b.split.outsideMinutes)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
 
-private val dayLabel: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())
-private val monthLabel: DateTimeFormatter = DateTimeFormatter.ofPattern("MMMM", Locale.getDefault())
 
-private fun buckets(entries: List<TimeEntry>, settings: Settings, holidays: Set<LocalDate>, period: Period): List<Bucket> {
+private fun buckets(entries: List<TimeEntry>, rules: Rules, period: Period): List<Bucket> {
     val keyOf: (TimeEntry) -> Comparable<*> = when (period) {
         Period.MONTH -> { e -> e.clockIn.toLocalDate() }
         Period.YEAR -> { e -> YearMonth.from(e.clockIn.toLocalDate()) }
@@ -210,11 +213,11 @@ private fun buckets(entries: List<TimeEntry>, settings: Settings, holidays: Set<
         .groupBy(keyOf)
         .toSortedMap(compareBy { it.toString() })
         .map { (key, group) ->
-            val split = group.fold(Pay.Split(0, 0)) { acc, e -> acc + Pay.split(e, settings) }
-            val pay = Pay.summarize(group, settings, holidays).overtimePay
+            val split = group.fold(Pay.Split(0, 0)) { acc, e -> acc + Pay.split(e, rules) }
+            val pay = Pay.summarize(group, rules).overtimePay
             val label = when (key) {
-                is LocalDate -> key.format(dayLabel)
-                is YearMonth -> key.format(monthLabel)
+                is LocalDate -> key.formatShortDay()
+                is YearMonth -> key.month.getDisplayName(java.time.format.TextStyle.FULL, AppLocale.current)
                 else -> key.toString()
             }
             Bucket(label, split, pay)

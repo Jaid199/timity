@@ -1,5 +1,8 @@
 package com.jaid.timity.ui
 
+import com.jaid.timity.MainActivity
+import com.jaid.timity.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -55,13 +59,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jaid.timity.MainViewModel
 import com.jaid.timity.MainViewModel.SyncState
 import com.jaid.timity.data.Holiday
+import com.jaid.timity.data.Ramadan
 import com.jaid.timity.data.ThemeMode
+import com.jaid.timity.data.WorkPeriod
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -69,6 +74,8 @@ import java.util.Locale
 fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     val holidays by vm.holidays.collectAsStateWithLifecycle()
+    val periods by vm.periods.collectAsStateWithLifecycle()
+    val rules by vm.rules.collectAsStateWithLifecycle()
     val syncState by vm.syncState.collectAsStateWithLifecycle()
 
     var rateText by rememberSaveable { mutableStateOf("") }
@@ -88,7 +95,7 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(32.dp))
-        Text("Settings", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.settings), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(24.dp))
 
         OutlinedTextField(
@@ -97,8 +104,8 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                 rateText = v
                 v.toDoubleOrNull()?.let { if (it >= 0) vm.setOvertimeRate(it) }
             },
-            label = { Text("Overtime rate (MVR per hour)") },
-            supportingText = { Text("Paid for every hour beyond the standard day, and for every hour on a holiday.") },
+            label = { Text(stringResource(R.string.overtime_rate_label)) },
+            supportingText = { Text(stringResource(R.string.overtime_rate_hint)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             isError = rateText.isNotEmpty() && rateText.toDoubleOrNull() == null,
@@ -111,26 +118,43 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                 hoursText = v
                 v.toDoubleOrNull()?.let { if (it in 0.0..24.0) vm.setStandardHours(it) }
             },
-            label = { Text("Standard hours per day") },
-            supportingText = { Text("Time worked past this counts as overtime.") },
+            label = { Text(stringResource(R.string.standard_hours_label)) },
+            supportingText = { Text(stringResource(R.string.standard_hours_hint)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             isError = hoursText.isNotEmpty() && hoursText.toDoubleOrNull() == null,
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Spacer(Modifier.height(32.dp))
-        SectionLabel("Working hours")
-        Spacer(Modifier.height(4.dp))
-        Hint("Reports split time into inside and outside this window.")
+        Spacer(Modifier.height(24.dp))
+        var editingPeriod by remember { mutableStateOf<WorkPeriod?>(null) }
+        val ramadanName = stringResource(R.string.ramadan)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SectionLabel(stringResource(R.string.working_hours))
+            Spacer(Modifier.weight(1f))
+            IconButton(onClick = {
+                // Pre-fill from the synced calendar when it has Ramadan; otherwise a placeholder range.
+                val range = Ramadan.upcoming(holidays)
+                    ?: Ramadan.Range(LocalDate.now(), LocalDate.now().plusDays(29))
+                editingPeriod = WorkPeriod(
+                    name = ramadanName,
+                    startEpochDay = range.start.toEpochDay(),
+                    endEpochDay = range.end.toEpochDay(),
+                    workStart = 9 * 60,
+                    workEnd = 13 * 60,
+                    standardHours = 4.0,
+                )
+            }) { Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_period)) }
+        }
+        Hint(stringResource(R.string.working_hours_hint))
         Spacer(Modifier.height(8.dp))
         var pickStart by rememberSaveable { mutableStateOf(false) }
         var pickEnd by rememberSaveable { mutableStateOf(false) }
         val start = LocalTime.ofSecondOfDay(settings.workStart * 60L)
         val end = LocalTime.ofSecondOfDay(settings.workEnd * 60L)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(onClick = { pickStart = true }, modifier = Modifier.weight(1f)) { Text("From ${start.formatTime()}") }
-            OutlinedButton(onClick = { pickEnd = true }, modifier = Modifier.weight(1f)) { Text("To ${end.formatTime()}") }
+            OutlinedButton(onClick = { pickStart = true }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.from_time, start.formatTime())) }
+            OutlinedButton(onClick = { pickEnd = true }, modifier = Modifier.weight(1f)) { Text(stringResource(R.string.to_time, end.formatTime())) }
         }
         if (pickStart) {
             TimeDialog(initial = start, onDismiss = { pickStart = false }) {
@@ -142,9 +166,37 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                 vm.setWorkWindow(settings.workStart, it.toSecondOfDay() / 60); pickEnd = false
             }
         }
+        Spacer(Modifier.height(8.dp))
+        val today = LocalDate.now()
+        val active = rules.periodFor(today)
+        Hint(
+            if (active == null) stringResource(R.string.today_default_hours, start.formatTime(), end.formatTime())
+            else stringResource(
+                R.string.today_period_hours,
+                active.name,
+                LocalTime.ofSecondOfDay(active.workStart * 60L).formatTime(),
+                LocalTime.ofSecondOfDay(active.workEnd * 60L).formatTime(),
+                active.end.formatDate(),
+            ),
+        )
+        periods.forEach { p ->
+            PeriodRow(
+                p,
+                onClick = { editingPeriod = p },
+                onToggle = { vm.savePeriod(p.copy(enabled = it)) },
+                onDelete = { vm.deletePeriod(p) },
+            )
+        }
+        editingPeriod?.let { p ->
+            WorkPeriodDialog(
+                period = p,
+                onDismiss = { editingPeriod = null },
+                onDelete = if (p.id != 0L) ({ vm.deletePeriod(p); editingPeriod = null }) else null,
+            ) { vm.savePeriod(it); editingPeriod = null }
+        }
 
         Spacer(Modifier.height(32.dp))
-        SectionLabel("Appearance")
+        SectionLabel(stringResource(R.string.appearance))
         Spacer(Modifier.height(8.dp))
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             ThemeMode.entries.forEachIndexed { i, mode ->
@@ -156,21 +208,46 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                         activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
                     ),
                 ) {
-                    Text(mode.name.lowercase().replaceFirstChar { it.titlecase() })
+                    Text(
+                        stringResource(
+                            when (mode) {
+                                ThemeMode.SYSTEM -> R.string.theme_system
+                                ThemeMode.LIGHT -> R.string.theme_light
+                                ThemeMode.DARK -> R.string.theme_dark
+                            },
+                        ),
+                    )
                 }
             }
         }
 
         Spacer(Modifier.height(32.dp))
-        SectionLabel("Weekly days off")
+        SectionLabel(stringResource(R.string.language))
+        Spacer(Modifier.height(8.dp))
+        val currentLang = MainActivity.currentLanguage()
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf("en" to R.string.lang_en, "dv" to R.string.lang_dv).forEachIndexed { i, (tag, label) ->
+                SegmentedButton(
+                    selected = currentLang == tag,
+                    onClick = { if (currentLang != tag) MainActivity.setLanguage(tag) },
+                    shape = SegmentedButtonDefaults.itemShape(i, 2),
+                    colors = SegmentedButtonDefaults.colors(
+                        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                ) { Text(stringResource(label)) }
+            }
+        }
+
+        Spacer(Modifier.height(32.dp))
+        SectionLabel(stringResource(R.string.weekly_days_off))
         Spacer(Modifier.height(4.dp))
-        Hint("Every hour worked on these days is overtime.")
+        Hint(stringResource(R.string.weekly_days_off_hint))
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             DayOfWeek.entries.forEach { day ->
                 val on = day in settings.weekendDays
                 DayToggle(
-                    label = day.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(2),
+                    label = day.getDisplayName(TextStyle.SHORT, AppLocale.current).take(2),
                     selected = on,
                     onClick = { vm.setWeekendDays(if (on) settings.weekendDays - day else settings.weekendDays + day) },
                     modifier = Modifier.weight(1f),
@@ -179,14 +256,14 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         }
 
         Spacer(Modifier.height(32.dp))
-        SectionLabel("Holidays")
+        SectionLabel(stringResource(R.string.holidays))
         Spacer(Modifier.height(4.dp))
-        Hint("Every hour worked on an enabled holiday is overtime. Defaults come from Calendarific for the Maldives; switch any off or add your own.")
+        Hint(stringResource(R.string.holidays_hint))
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = keyText,
             onValueChange = { keyText = it; vm.setHolidayApiKey(it) },
-            label = { Text("Calendarific API key") },
+            label = { Text(stringResource(R.string.api_key)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -201,14 +278,14 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                     CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                     Spacer(Modifier.width(8.dp))
                 }
-                Text("Sync $year–${year + 1}")
+                Text(stringResource(R.string.sync_years, year, year + 1))
             }
             Spacer(Modifier.width(12.dp))
             var showAdd by rememberSaveable { mutableStateOf(false) }
-            TextButton(onClick = { showAdd = true }) { Text("Add holiday") }
+            TextButton(onClick = { showAdd = true }) { Text(stringResource(R.string.add_holiday)) }
             if (showAdd) {
                 HolidayDialog(
-                    title = "Add holiday",
+                    title = stringResource(R.string.add_holiday),
                     initialName = "",
                     initialDate = LocalDate.now(),
                     onDismiss = { showAdd = false },
@@ -217,17 +294,18 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         }
         val status = when (val s = syncState) {
             SyncState.Idle -> if (settings.holidaysSyncedAt > 0L)
-                "Last synced ${settings.holidaysSyncedAt.toLocalDate().formatDay(withYear = true)}" else null
-            SyncState.Running -> "Fetching holidays…"
-            is SyncState.Done -> "Synced: ${s.added} new of ${s.total} holidays."
-            is SyncState.Failed -> "Sync failed: ${s.message}"
+                stringResource(R.string.last_synced, settings.holidaysSyncedAt.toLocalDate().formatDay(withYear = true)) else null
+            SyncState.Running -> stringResource(R.string.fetching_holidays)
+            is SyncState.Done -> stringResource(R.string.sync_done, s.added, s.total)
+            SyncState.MissingKey -> stringResource(R.string.sync_missing_key)
+            is SyncState.Failed -> stringResource(R.string.sync_failed, s.message)
         }
         if (status != null) {
             Spacer(Modifier.height(4.dp))
             Text(
                 status,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (syncState is SyncState.Failed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (syncState is SyncState.Failed || syncState is SyncState.MissingKey) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
@@ -235,7 +313,7 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (holidays.isEmpty()) {
             Spacer(Modifier.height(16.dp))
-            Hint("No holidays yet. Enter an API key and sync, or add one manually.")
+            Hint(stringResource(R.string.no_holidays))
         }
         var editing by remember { mutableStateOf<Holiday?>(null) }
         holidays.forEach { h ->
@@ -249,7 +327,7 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         }
         editing?.let { h ->
             HolidayDialog(
-                title = "Edit holiday",
+                title = stringResource(R.string.edit_holiday),
                 initialName = h.name,
                 initialDate = h.date,
                 onDismiss = { editing = null },
@@ -258,6 +336,164 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.height(32.dp))
     }
+}
+
+
+@Composable
+private fun PeriodRow(p: WorkPeriod, onClick: () -> Unit, onToggle: (Boolean) -> Unit, onDelete: () -> Unit) {
+    val today = LocalDate.now()
+    val status = stringResource(
+        when {
+            !p.enabled -> R.string.period_status_off
+            p.contains(today) -> R.string.period_status_active
+            today.isBefore(p.start) -> R.string.period_status_upcoming
+            else -> R.string.period_status_finished
+        },
+    )
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "${p.name}  ·  $status",
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (p.enabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "${p.start.formatDate()} – ${p.end.formatDate()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "${LocalTime.ofSecondOfDay(p.workStart * 60L).formatTime()} – ${LocalTime.ofSecondOfDay(p.workEnd * 60L).formatTime()}" +
+                    "  ·  " + stringResource(R.string.standard_day, p.standardHours.trimmed()),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(
+            checked = p.enabled,
+            onCheckedChange = onToggle,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+            ),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WorkPeriodDialog(
+    period: WorkPeriod,
+    onDismiss: () -> Unit,
+    onDelete: (() -> Unit)?,
+    onSave: (WorkPeriod) -> Unit,
+) {
+    var name by rememberSaveable { mutableStateOf(period.name) }
+    var start by remember { mutableStateOf(period.start) }
+    var end by remember { mutableStateOf(period.end) }
+    var workStart by remember { mutableStateOf(LocalTime.ofSecondOfDay(period.workStart * 60L)) }
+    var workEnd by remember { mutableStateOf(LocalTime.ofSecondOfDay(period.workEnd * 60L)) }
+    var hoursText by rememberSaveable { mutableStateOf(period.standardHours.trimmed()) }
+
+    var pickStart by rememberSaveable { mutableStateOf(false) }
+    var pickEnd by rememberSaveable { mutableStateOf(false) }
+    var pickWorkStart by rememberSaveable { mutableStateOf(false) }
+    var pickWorkEnd by rememberSaveable { mutableStateOf(false) }
+
+    val hours = hoursText.toDoubleOrNull()
+    val rangeOk = !end.isBefore(start)
+    val valid = name.isNotBlank() && rangeOk && hours != null && hours in 0.0..24.0
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = { Text(stringResource(if (period.id == 0L) R.string.add_period else R.string.edit_period)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.name)) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(12.dp))
+                DialogField(stringResource(R.string.from_date), start.formatDate()) { pickStart = true }
+                Spacer(Modifier.height(8.dp))
+                DialogField(stringResource(R.string.to_date), end.formatDate()) { pickEnd = true }
+                if (!rangeOk) {
+                    Text(stringResource(R.string.end_before_start), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                Spacer(Modifier.height(8.dp))
+                DialogField(stringResource(R.string.work_from), workStart.formatTime()) { pickWorkStart = true }
+                Spacer(Modifier.height(8.dp))
+                DialogField(stringResource(R.string.work_to), workEnd.formatTime()) { pickWorkEnd = true }
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = hoursText, onValueChange = { hoursText = it },
+                    label = { Text(stringResource(R.string.standard_hours_label)) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    isError = hoursText.isNotEmpty() && (hours == null || hours !in 0.0..24.0),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = {
+                onSave(
+                    period.copy(
+                        name = name.trim(),
+                        startEpochDay = start.toEpochDay(),
+                        endEpochDay = end.toEpochDay(),
+                        workStart = workStart.toSecondOfDay() / 60,
+                        workEnd = workEnd.toSecondOfDay() / 60,
+                        standardHours = hours ?: period.standardHours,
+                    ),
+                )
+            }) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = {
+            Row {
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            }
+        },
+    )
+
+    if (pickStart) DateDialog(start, onDismiss = { pickStart = false }) { start = it; if (end.isBefore(it)) end = it; pickStart = false }
+    if (pickEnd) DateDialog(end, onDismiss = { pickEnd = false }) { end = it; pickEnd = false }
+    if (pickWorkStart) TimeDialog(initial = workStart, onDismiss = { pickWorkStart = false }) { workStart = it; pickWorkStart = false }
+    if (pickWorkEnd) TimeDialog(initial = workEnd, onDismiss = { pickWorkEnd = false }) { workEnd = it; pickWorkEnd = false }
+}
+
+@Composable
+private fun DialogField(label: String, value: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        OutlinedButton(onClick = onClick) { Text(value) }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateDialog(initial: LocalDate, onDismiss: () -> Unit, onPick: (LocalDate) -> Unit) {
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                state.selectedDateMillis?.let { onPick(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()) } ?: onDismiss()
+            }) { Text(stringResource(R.string.ok)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    ) { DatePicker(state = state) }
 }
 
 /** A compact selectable box; Material's FilterChip is too wide for seven in a row on a phone. */
@@ -290,7 +526,6 @@ private fun SectionLabel(text: String) =
 private fun Hint(text: String) =
     Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-private val holidayDateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.getDefault())
 
 @Composable
 private fun HolidayRow(h: Holiday, onClick: () -> Unit, onToggle: (Boolean) -> Unit, onDelete: () -> Unit) {
@@ -305,14 +540,14 @@ private fun HolidayRow(h: Holiday, onClick: () -> Unit, onToggle: (Boolean) -> U
                 color = if (h.enabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                "${h.date.format(holidayDateFmt)}  ·  ${h.type}",
+                "${h.date.formatDay(withYear = true)}  ·  ${if (h.source == Holiday.SOURCE_CUSTOM) stringResource(R.string.type_custom) else h.type}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         if (h.source == Holiday.SOURCE_CUSTOM) {
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete), tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Switch(
@@ -349,45 +584,31 @@ private fun HolidayDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Name") },
+                    label = { Text(stringResource(R.string.name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Date", style = MaterialTheme.typography.bodyLarge)
+                    Text(stringResource(R.string.date), style = MaterialTheme.typography.bodyLarge)
                     OutlinedButton(onClick = { pickDate = true }) { Text(date.formatDay(withYear = true)) }
                 }
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onSave(date, name) }) { Text("Save") }
+            TextButton(enabled = name.isNotBlank(), onClick = { onSave(date, name) }) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
             Row {
                 if (onDelete != null) {
-                    TextButton(onClick = onDelete) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    TextButton(onClick = onDelete) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
                 }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         },
     )
 
-    if (pickDate) {
-        val state = rememberDatePickerState(
-            initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-        )
-        DatePickerDialog(
-            onDismissRequest = { pickDate = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    state.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }
-                    pickDate = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { pickDate = false }) { Text("Cancel") } },
-        ) { DatePicker(state = state) }
-    }
+    if (pickDate) DateDialog(date, onDismiss = { pickDate = false }) { date = it; pickDate = false }
 }
 
 /** 8.0 -> "8", 12.5 -> "12.5". */

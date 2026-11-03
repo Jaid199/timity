@@ -1,5 +1,7 @@
 package com.jaid.timity.ui
 
+import com.jaid.timity.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,8 +39,7 @@ import java.time.LocalDate
 fun HomeScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val open by vm.openEntry.collectAsStateWithLifecycle()
     val today by vm.todayEntries.collectAsStateWithLifecycle()
-    val settings by vm.settings.collectAsStateWithLifecycle()
-    val holidays by vm.holidayDates.collectAsStateWithLifecycle()
+    val rules by vm.rules.collectAsStateWithLifecycle()
 
     // Tick once a second while a session is open so the elapsed time stays live.
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
@@ -49,15 +50,18 @@ fun HomeScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         }
     }
 
-    val summary = Pay.summarize(today, settings, holidays, now)
-    val isHoliday = Pay.isDayOff(LocalDate.now(), settings, holidays)
+    val summary = Pay.summarize(today, rules, now)
+    val isHoliday = rules.isDayOff(LocalDate.now())
+    val periodToday = rules.periodFor(LocalDate.now())
 
     Column(
         modifier = modifier.fillMaxSize().padding(horizontal = 24.dp),
     ) {
         Spacer(Modifier.height(32.dp))
         Text(
-            LocalDate.now().formatDay(withYear = true) + if (isHoliday) "  ·  Holiday" else "",
+            LocalDate.now().formatDay(withYear = true) +
+                (if (isHoliday) "  ·  " + stringResource(R.string.holiday) else "") +
+                (if (periodToday != null) "  ·  " + stringResource(R.string.period_hours, periodToday.name) else ""),
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -70,7 +74,7 @@ fun HomeScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onBackground,
         )
         Text(
-            if (open != null) "since ${open!!.clockIn.formatTime()}" else "worked today",
+            if (open != null) stringResource(R.string.since, open!!.clockIn.formatTime()) else stringResource(R.string.worked_today),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -83,14 +87,14 @@ fun HomeScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                 contentColor = MaterialTheme.colorScheme.onPrimary,
             ),
         ) {
-            Text(if (open == null) "Clock in" else "Clock out", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(if (open == null) R.string.clock_in else R.string.clock_out), style = MaterialTheme.typography.titleMedium)
         }
         Spacer(Modifier.height(32.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Stat("Worked", formatDuration(summary.workedMinutes))
-            Stat("Overtime", formatDuration(summary.overtimeMinutes), alignEnd = false)
-            Stat("OT pay", formatMvr(summary.overtimePay), alignEnd = true)
+            Stat(stringResource(R.string.worked), formatDuration(summary.workedMinutes))
+            Stat(stringResource(R.string.overtime), formatDuration(summary.overtimeMinutes), alignEnd = false)
+            Stat(stringResource(R.string.ot_pay), formatMvr(summary.overtimePay), alignEnd = true)
         }
         Spacer(Modifier.height(24.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -120,7 +124,7 @@ private fun EntryRow(e: TimeEntry, now: Long) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            "${e.clockIn.formatTime()}  –  ${e.clockOut?.formatTime() ?: "now"}",
+            "${e.clockIn.formatTime()}  –  ${e.clockOut?.formatTime() ?: stringResource(R.string.now)}",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onBackground,
         )

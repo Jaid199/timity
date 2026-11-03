@@ -14,12 +14,17 @@ A minimal Android time tracker for one employee: clock in, clock out, and see ov
 - **Today**: one-tap clock in / clock out with a live elapsed timer and today's sessions.
 - **History**: filter by month or year, see hours worked, overtime hours, the hourly overtime rate and total overtime pay in MVR. Tap an entry to edit or delete it, or add one manually.
 - **Reports**: overtime pay for the month or year, total and average hours, time worked inside vs outside your working-hours window, and a per-day (month) or per-month (year) breakdown.
-- **Settings**: overtime rate (MVR per hour), standard hours per day (anything beyond counts as overtime), working-hours window, System / Light / Dark theme, weekly days off (Friday and Saturday by default), and holidays.
+- **Settings**: overtime rate (MVR per hour), standard hours per day (anything beyond counts as overtime), working-hours window, System / Light / Dark theme, English / Dhivehi language, weekly days off (Friday and Saturday by default), and holidays.
+- **Ramadan hours**: tap + next to Working hours to add a period with its own window and standard day. The dates are pre-filled from the synced calendar's Ramadan Start and Eid al-Fitr entries. A period applies only between its dates and switches back to the default hours automatically; each one can also be switched off.
 - **Holidays**: every hour worked on a holiday or weekly day off is overtime. Enter a free [Calendarific](https://calendarific.com) API key and tap Sync to pull Maldives holidays for this year and next. National and public holidays are on by default; government holidays and observances are listed but off. Toggle any holiday, tap one to edit its name or date, or add your own.
+
+## Language
+
+The app ships in English and Dhivehi (ދިވެހި). The switch is in Settings and is stored by AndroidX AppCompat, so it survives restarts. Dhivehi strings live in `app/src/main/res/values-dv/strings.xml`; corrections are welcome.
 
 ## Stack
 
-- Kotlin + Jetpack Compose (Material 3)
+- Kotlin + Jetpack Compose (Material 3), AppCompat for per-app locales
 - Room (SQLite) for time entries, stored on the device only
 - DataStore for settings
 - minSdk 26, targetSdk 36
@@ -29,7 +34,7 @@ A minimal Android time tracker for one employee: clock in, clock out, and see ov
 Requires a JDK 17+ and the Android SDK (`ANDROID_HOME` set, or a `local.properties` with `sdk.dir`).
 
 ```sh
-./gradlew assembleDebug
+./gradlew testDebugUnitTest assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
