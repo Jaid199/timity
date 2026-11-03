@@ -16,7 +16,7 @@ A minimal Android time tracker for one employee: clock in, clock out, and see ov
 - **Reports**: overtime pay for the month or year, total and average hours, time worked inside vs outside your working-hours window, and a per-day (month) or per-month (year) breakdown.
 - **Settings**: overtime rate (MVR per hour), standard hours per day (anything beyond counts as overtime), working-hours window, System / Light / Dark theme, English / Dhivehi language, weekly days off (Friday and Saturday by default), and holidays.
 - **Ramadan hours**: tap + next to Working hours to add a period with its own window and standard day. The dates are pre-filled from the synced calendar's Ramadan Start and Eid al-Fitr entries. A period applies only between its dates and switches back to the default hours automatically; each one can also be switched off.
-- **Holidays**: every hour worked on a holiday or weekly day off is overtime. Enter a free [Calendarific](https://calendarific.com) API key and tap Sync to pull Maldives holidays for this year and next. National and public holidays are on by default; government holidays and observances are listed but off. Toggle any holiday, tap one to edit its name or date, or add your own.
+- **Holidays**: every hour worked on a holiday or weekly day off is overtime. Enter a free [Calendarific](https://calendarific.com) API key and tap Sync to pull Maldives holidays for this year and next. National and public holidays are on by default; government holidays and observances are listed but off. Toggle any holiday, tap one to edit its name or date, search the list by name, type or date, or add your own as a Holiday, Sick day or Day off.
 
 ## Language
 

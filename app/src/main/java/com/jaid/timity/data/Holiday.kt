@@ -21,5 +21,11 @@ data class Holiday(
     companion object {
         const val SOURCE_API = "calendarific"
         const val SOURCE_CUSTOM = "custom"
+
+        /** Types for user-added days. Stored as-is; shown through string resources. */
+        const val TYPE_CUSTOM = "Custom"
+        const val TYPE_SICK = "Sick day"
+        const val TYPE_OFF = "Day off"
+        val CUSTOM_TYPES = listOf(TYPE_CUSTOM, TYPE_SICK, TYPE_OFF)
     }
 }

@@ -127,14 +127,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .onFailure { _syncState.value = SyncState.Failed(it.message ?: it.javaClass.simpleName) }
     }
 
-    fun addHoliday(date: LocalDate, name: String) = viewModelScope.launch {
+    fun addHoliday(date: LocalDate, name: String, type: String = Holiday.TYPE_CUSTOM) = viewModelScope.launch {
         holidayDao.insert(
-            Holiday(epochDay = date.toEpochDay(), name = name.trim(), type = "Custom", source = Holiday.SOURCE_CUSTOM, enabled = true),
+            Holiday(epochDay = date.toEpochDay(), name = name.trim(), type = type, source = Holiday.SOURCE_CUSTOM, enabled = true),
         )
     }
 
-    fun updateHoliday(h: Holiday, date: LocalDate, name: String) = viewModelScope.launch {
-        holidayDao.update(h.copy(epochDay = date.toEpochDay(), name = name.trim()))
+    fun updateHoliday(h: Holiday, date: LocalDate, name: String, type: String = h.type) = viewModelScope.launch {
+        holidayDao.update(h.copy(epochDay = date.toEpochDay(), name = name.trim(), type = type))
     }
 
     fun setHolidayEnabled(h: Holiday, enabled: Boolean) = viewModelScope.launch { holidayDao.update(h.copy(enabled = enabled)) }

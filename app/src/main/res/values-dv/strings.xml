@@ -110,5 +110,10 @@
     <string name="sync_failed">ސިންކް ނުކުރެވުނު: %1$s</string>
     <string name="sync_missing_key">ފުރަތަމަ ކެލެންޑަރިފިކް API ކީ ލިޔޭ.</string>
     <string name="no_holidays">އަދި ބަންދު ދުވަހެއް ނެތް. API ކީ ލިޔެ ސިންކްކުރޭ، ނުވަތަ އަމިއްލައަށް އިތުރުކުރޭ.</string>
-    <string name="type_custom">އަމިއްލަ</string>
+    <string name="type_custom">ބަންދު</string>
+    <string name="type_sick">ބަލި ދުވަސް</string>
+    <string name="type_off">އޮފް ދުވަސް</string>
+    <string name="kind">ބާވަތް</string>
+    <string name="search_holidays">ބަންދު ދުވަސްތައް ހޯދާ</string>
+    <string name="no_matching_holidays">ހޯދި އެއްޗަކާ ގުޅޭ ބަންދު ދުވަހެއް ނެތް.</string>
 </resources>

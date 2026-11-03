@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -315,17 +316,26 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                 }
                 Text(stringResource(R.string.sync_years, year, year + 1))
             }
-            Spacer(Modifier.width(12.dp))
-            var showAdd by rememberSaveable { mutableStateOf(false) }
-            TextButton(onClick = { showAdd = true }) { Text(stringResource(R.string.add_holiday)) }
-            if (showAdd) {
-                HolidayDialog(
-                    title = stringResource(R.string.add_holiday),
-                    initialName = "",
-                    initialDate = LocalDate.now(),
-                    onDismiss = { showAdd = false },
-                ) { date, name -> vm.addHoliday(date, name); showAdd = false }
+        }
+        Spacer(Modifier.height(8.dp))
+        // Quick-add: a holiday, a sick day or a day off, each pre-filled and then editable.
+        var adding by rememberSaveable { mutableStateOf<String?>(null) }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Holiday.CUSTOM_TYPES.forEach { type ->
+                OutlinedButton(onClick = { adding = type }, modifier = Modifier.weight(1f)) {
+                    Text("+ " + typeLabel(type), maxLines = 1)
+                }
             }
+        }
+        adding?.let { type ->
+            val defaultName = if (type == Holiday.TYPE_CUSTOM) "" else typeLabel(type)
+            HolidayDialog(
+                title = stringResource(R.string.add_holiday),
+                initialName = defaultName,
+                initialDate = LocalDate.now(),
+                initialType = type,
+                onDismiss = { adding = null },
+            ) { date, name, t -> vm.addHoliday(date, name, t); adding = null }
         }
         val status = when (val s = syncState) {
             SyncState.Idle -> if (settings.holidaysSyncedAt > 0L)
@@ -345,13 +355,34 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         }
 
         Spacer(Modifier.height(12.dp))
+        var query by rememberSaveable { mutableStateOf("") }
+        if (holidays.isNotEmpty()) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = { Text(stringResource(R.string.search_holidays)) },
+                singleLine = true,
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) { Icon(Icons.Default.Clear, contentDescription = stringResource(R.string.cancel)) }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(8.dp))
+        }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (holidays.isEmpty()) {
             Spacer(Modifier.height(16.dp))
             Hint(stringResource(R.string.no_holidays))
         }
+        val shown = remember(holidays, query) { holidays.filter { it.matches(query) } }
+        if (holidays.isNotEmpty() && shown.isEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Hint(stringResource(R.string.no_matching_holidays))
+        }
         var editing by remember { mutableStateOf<Holiday?>(null) }
-        holidays.forEach { h ->
+        shown.forEach { h ->
             HolidayRow(
                 h,
                 onClick = { editing = h },
@@ -365,9 +396,11 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                 title = stringResource(R.string.edit_holiday),
                 initialName = h.name,
                 initialDate = h.date,
+                initialType = h.type,
+                typeEditable = h.source == Holiday.SOURCE_CUSTOM,
                 onDismiss = { editing = null },
                 onDelete = { vm.deleteHoliday(h); editing = null },
-            ) { date, name -> vm.updateHoliday(h, date, name); editing = null }
+            ) { date, name, t -> vm.updateHoliday(h, date, name, t); editing = null }
         }
         Spacer(Modifier.height(32.dp))
     }
@@ -575,7 +608,7 @@ private fun HolidayRow(h: Holiday, onClick: () -> Unit, onToggle: (Boolean) -> U
                 color = if (h.enabled) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                "${h.date.formatDay(withYear = true)}  ·  ${if (h.source == Holiday.SOURCE_CUSTOM) stringResource(R.string.type_custom) else h.type}",
+                "${h.date.formatDay(withYear = true)}  ·  ${typeLabel(h.type)}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -602,12 +635,15 @@ private fun HolidayDialog(
     title: String,
     initialName: String,
     initialDate: LocalDate,
+    initialType: String,
+    typeEditable: Boolean = true,
     onDismiss: () -> Unit,
     onDelete: (() -> Unit)? = null,
-    onSave: (LocalDate, String) -> Unit,
+    onSave: (LocalDate, String, String) -> Unit,
 ) {
     var name by rememberSaveable { mutableStateOf(initialName) }
     var date by remember { mutableStateOf(initialDate) }
+    var type by rememberSaveable { mutableStateOf(initialType) }
     var pickDate by rememberSaveable { mutableStateOf(false) }
 
     AlertDialog(
@@ -628,10 +664,27 @@ private fun HolidayDialog(
                     Text(stringResource(R.string.date), style = MaterialTheme.typography.bodyLarge)
                     OutlinedButton(onClick = { pickDate = true }) { Text(date.formatDay(withYear = true)) }
                 }
+                if (typeEditable) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(stringResource(R.string.kind), style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.height(6.dp))
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        Holiday.CUSTOM_TYPES.forEachIndexed { i, t ->
+                            SegmentedButton(
+                                selected = type == t,
+                                onClick = { type = t },
+                                shape = SegmentedButtonDefaults.itemShape(i, Holiday.CUSTOM_TYPES.size),
+                                colors = SegmentedButtonDefaults.colors(
+                                    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                ),
+                            ) { Text(typeLabel(t), maxLines = 1) }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(enabled = name.isNotBlank(), onClick = { onSave(date, name) }) { Text(stringResource(R.string.save)) }
+            TextButton(enabled = name.isNotBlank(), onClick = { onSave(date, name, type) }) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
             Row {
@@ -644,6 +697,24 @@ private fun HolidayDialog(
     )
 
     if (pickDate) DateDialog(date, onDismiss = { pickDate = false }) { date = it; pickDate = false }
+}
+
+/** Localised label for a holiday type; Calendarific's own type names are shown as they come. */
+@Composable
+private fun typeLabel(type: String): String = when (type) {
+    Holiday.TYPE_CUSTOM -> stringResource(R.string.type_custom)
+    Holiday.TYPE_SICK -> stringResource(R.string.type_sick)
+    Holiday.TYPE_OFF -> stringResource(R.string.type_off)
+    else -> type
+}
+
+/** Case-insensitive match on name, type, or the date in a few spellings ("3 Nov", "2026-11-03", "nov 2026"). */
+private fun Holiday.matches(query: String): Boolean {
+    val q = query.trim().lowercase()
+    if (q.isEmpty()) return true
+    val d = date
+    val haystack = listOf(name, type, d.toString(), d.formatDay(withYear = true), d.formatDate(), d.formatShortDay())
+    return haystack.any { it.lowercase().contains(q) }
 }
 
 /** 8.0 -> "8", 12.5 -> "12.5". */

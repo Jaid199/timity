@@ -116,5 +116,10 @@
     <string name="sync_failed">Sync failed: %1$s</string>
     <string name="sync_missing_key">Enter your Calendarific API key first.</string>
     <string name="no_holidays">No holidays yet. Enter an API key and sync, or add one manually.</string>
-    <string name="type_custom">Custom</string>
+    <string name="type_custom">Holiday</string>
+    <string name="type_sick">Sick day</string>
+    <string name="type_off">Day off</string>
+    <string name="kind">Type</string>
+    <string name="search_holidays">Search holidays</string>
+    <string name="no_matching_holidays">No holidays match your search.</string>
 </resources>
