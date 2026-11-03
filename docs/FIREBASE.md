@@ -14,6 +14,8 @@ lost phone and can later be shared with a second device or a web dashboard.
 4. **Firestore Database** → Create database → production mode → region `asia-south1` (Mumbai)
    is the closest to the Maldives.
 5. **Rules** → paste the contents of `firestore.rules` from this repo → Publish.
+   The full field list for every collection, with sample documents, is in
+   [FIRESTORE_COLLECTIONS.md](FIRESTORE_COLLECTIONS.md).
 
 The free Spark plan covers this app many times over: 1 GiB storage, 50k reads and 20k writes
 per day. A heavy day of clocking in and out is well under a hundred writes.

@@ -28,6 +28,7 @@ The app ships in English and Dhivehi (ދިވެހި). The switch is in Settings a
 - Room (SQLite) for time entries, stored on the device only
 - DataStore for settings
 - minSdk 26, targetSdk 36
+- Firebase (planned): setup in [docs/FIREBASE.md](docs/FIREBASE.md), collections and rules in [docs/FIRESTORE_COLLECTIONS.md](docs/FIRESTORE_COLLECTIONS.md)
 
 ## Build
 
