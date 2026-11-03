@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Everything lives under the signed-in user's own document. Nobody else can read or write it.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      match /entries/{entryId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validEntry(request.resource.data);
+      }
+      match /holidays/{holidayId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validHoliday(request.resource.data);
+      }
+      match /periods/{periodId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validPeriod(request.resource.data);
+      }
+      match /settings/{docId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function validEntry(d) {
+      return d.clockIn is int
+        && (!('clockOut' in d) || d.clockOut == null || (d.clockOut is int && d.clockOut >= d.clockIn))
+        && d.note is string && d.note.size() <= 500
+        && d.updatedAt is int;
+    }
+
+    function validHoliday(d) {
+      return d.epochDay is int
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 120
+        && d.type is string && d.source in ['calendarific', 'custom']
+        && d.enabled is bool
+        && d.updatedAt is int;
+    }
+
+    function validPeriod(d) {
+      return d.name is string && d.name.size() > 0
+        && d.startEpochDay is int && d.endEpochDay is int && d.endEpochDay >= d.startEpochDay
+        && d.workStart is int && d.workEnd is int
+        && d.standardHours is number && d.standardHours >= 0 && d.standardHours <= 24
+        && d.enabled is bool
+        && d.updatedAt is int;
+    }
+  }
+}

@@ -1,11 +1,14 @@
 package com.jaid.timity.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.jaid.timity.data.ThemeMode
 
 // A deliberately neutral palette: near-black on white, and the inverse in the dark.
@@ -62,6 +65,14 @@ fun TimityTheme(mode: ThemeMode, content: @Composable () -> Unit) {
     }
     MaterialTheme(
         colorScheme = if (dark) DarkScheme else LightScheme,
+        // Text fields use the extra-small shape; round them to sit with the pill buttons.
+        shapes = Shapes(
+            extraSmall = RoundedCornerShape(20.dp),
+            small = RoundedCornerShape(16.dp),
+            medium = RoundedCornerShape(20.dp),
+            large = RoundedCornerShape(28.dp),
+            extraLarge = RoundedCornerShape(28.dp),
+        ),
         content = content,
     )
 }
