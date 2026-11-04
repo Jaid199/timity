@@ -13,3 +13,8 @@
 *.keystore
 *.jks
 /app/google-services.json
+
+# secrets and node tooling
+.env
+/dbpassowrd
+/node_modules/

@@ -1,0 +1,61 @@
+# Supabase setup for Timity
+
+Timity keeps working offline with Room. Supabase adds a free cloud copy (Postgres) so the data
+survives a lost phone and can be restored on a new one.
+
+## 1. Create the tables
+
+1. Open your project at [supabase.com/dashboard](https://supabase.com/dashboard).
+2. **SQL Editor** → **New query** → paste the whole of
+   [`supabase/migrations/20261105000000_init.sql`](../supabase/migrations/20261105000000_init.sql)
+   → **Run**.
+3. **Table Editor** should now list `settings`, `entries`, `holidays` and `periods`, each with the
+   RLS shield icon on.
+
+Alternatively, with `psql`: connect through the IPv4 session pooler (**Connect** button in the
+dashboard → Session pooler; for this project the host is `aws-0-ap-northeast-1.pooler.supabase.com`,
+user `postgres.<ref>`) and run `psql "<connection string>" -1 -f supabase/migrations/20261105000000_init.sql`.
+The direct `db.<ref>.supabase.co` host is IPv6-only.
+
+## 2. Authentication
+
+**Authentication → Sign In / Providers**:
+
+- **Anonymous sign-ins**: turn on. The app signs in silently on first launch.
+- **Google**: optional, lets you restore on a new phone. Anonymous users can later be linked to
+  a Google account without losing data.
+
+## 3. Keys the app needs
+
+**Project Settings → API**: copy the **Project URL** and the **publishable** key into `.env` at the
+repo root (copy `.env.example` to start; `.env` is git-ignored):
+
+```
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+```
+
+The Gradle build reads `.env` and exposes the values as `BuildConfig.SUPABASE_URL` and
+`BuildConfig.SUPABASE_PUBLISHABLE_KEY`. The `NEXT_PUBLIC_`-prefixed names the dashboard prints
+also work. The publishable key is safe to ship in the APK because Row Level Security restricts
+every table to the signed-in user. Never put the `service_role` key or the database password in
+`.env` or anywhere in the app.
+
+## 4. Data model
+
+| table | one row per | notes |
+|---|---|---|
+| `settings` | user | primary key is `user_id`; the Calendarific API key stays on the phone |
+| `entries` | work session | `clock_out` null while clocked in; `note` max 500 chars |
+| `holidays` | day off | `(user_id, epoch_day, name)` is unique |
+| `periods` | Ramadan-style period | `end_epoch_day >= start_epoch_day` |
+
+Conventions shared by all tables:
+
+- `id` is a uuid generated on the phone, so rows can be created offline.
+- `updated_at` is epoch millis; sync resolves conflicts with latest write wins.
+- `deleted_at` is a tombstone (epoch millis, or null) so deletions propagate to other devices.
+- Days are epoch days (`LocalDate.toEpochDay()`), times of day are minutes from midnight.
+
+The free plan pauses a project after seven days without any request. Daily use keeps it awake,
+and a paused project is restored with one click in the dashboard.

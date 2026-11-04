@@ -1,8 +1,25 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
 }
+
+/**
+ * Supabase credentials come from the git-ignored `.env` at the repo root (see docs/SUPABASE.md).
+ * Both the plain names and the NEXT_PUBLIC_-prefixed names the Supabase dashboard prints are accepted.
+ * A missing file yields empty strings so the app still builds; sync is simply disabled.
+ */
+val dotEnv: Map<String, String> = rootProject.file(".env").takeIf { it.isFile }?.let { file ->
+    Properties().apply { file.reader().use { load(it) } }
+        .entries.associate { (k, v) -> k.toString().trim() to v.toString().trim().trim('"', '\'') }
+} ?: emptyMap()
+
+fun env(vararg names: String): String = names.firstNotNullOfOrNull { dotEnv[it]?.takeIf(String::isNotBlank) } ?: ""
+
+val supabaseUrl = env("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL")
+val supabasePublishableKey = env("SUPABASE_PUBLISHABLE_KEY", "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY")
 
 android {
     namespace = "com.jaid.timity"
@@ -14,6 +31,9 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "SUPABASE_URL", "\"$supabaseUrl\"")
+        buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY", "\"$supabasePublishableKey\"")
     }
 
     buildTypes {
@@ -31,6 +51,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
