@@ -122,4 +122,15 @@
     <string name="kind">Type</string>
     <string name="search_holidays">Search holidays</string>
     <string name="no_matching_holidays">No holidays match your search.</string>
+    <string name="cloud_backup">Cloud backup</string>
+    <string name="cloud_backup_hint">Sessions, holidays, periods and settings are copied to Supabase after every change, so they survive a lost phone.</string>
+    <string name="cloud_sync_now">Sync now</string>
+    <string name="cloud_syncing">Syncing…</string>
+    <string name="cloud_backed_up">Backed up %1$s</string>
+    <string name="cloud_never">Not backed up yet.</string>
+    <string name="cloud_offline">Offline. Will retry when connected.</string>
+    <string name="cloud_failed">Backup failed: %1$s</string>
+    <string name="cloud_not_configured">Not configured: add SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY to .env and rebuild.</string>
+    <string name="cloud_connected">Cloud connected</string>
+    <string name="cloud_disconnected">Cloud not connected</string>
 </resources>

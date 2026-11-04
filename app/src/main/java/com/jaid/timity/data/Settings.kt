@@ -3,6 +3,8 @@ package com.jaid.timity.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.MutablePreferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -11,6 +13,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.DayOfWeek
 
@@ -61,6 +64,9 @@ class SettingsRepository(context: Context) {
         val holidayApiKey = stringPreferencesKey("holiday_api_key")
         val holidaysSyncedAt = longPreferencesKey("holidays_synced_at")
         val weekendDays = stringSetPreferencesKey("weekend_days")
+        /** Cloud sync bookkeeping: when the synced fields last changed here, and whether that change is still unpushed. */
+        val updatedAt = longPreferencesKey("updated_at")
+        val dirty = booleanPreferencesKey("dirty")
     }
 
     val settings: Flow<Settings> = store.data.map { p ->
@@ -81,15 +87,59 @@ class SettingsRepository(context: Context) {
         )
     }
 
-    suspend fun setOvertimeRate(rate: Double) = store.edit { it[Keys.overtimeRate] = rate }
-    suspend fun setStandardHours(hours: Double) = store.edit { it[Keys.standardHours] = hours }
-    suspend fun setTheme(mode: ThemeMode) = store.edit { it[Keys.theme] = mode.name }
-    suspend fun setOvertimeMode(mode: OvertimeMode) = store.edit { it[Keys.overtimeMode] = mode.name }
+    private fun Settings.write(p: MutablePreferences) {
+        p[Keys.overtimeRate] = overtimeRate
+        p[Keys.standardHours] = standardHours
+        p[Keys.theme] = theme.name
+        p[Keys.overtimeMode] = overtimeMode.name
+        p[Keys.workStart] = workStart
+        p[Keys.workEnd] = workEnd
+        p[Keys.holidaysSyncedAt] = holidaysSyncedAt
+        p[Keys.weekendDays] = weekendDays.map { d -> d.name }.toSet()
+    }
+
+    /** A local change to a synced field: stamp it and flag it for the next push. */
+    private suspend fun change(block: (MutablePreferences) -> Unit) {
+        store.edit {
+            block(it)
+            it[Keys.updatedAt] = System.currentTimeMillis()
+            it[Keys.dirty] = true
+        }
+        onChanged?.invoke()
+    }
+
+    /** Called after every synced change; the repository hooks the cloud sync here. */
+    var onChanged: (() -> Unit)? = null
+
+    suspend fun setOvertimeRate(rate: Double) = change { it[Keys.overtimeRate] = rate }
+    suspend fun setStandardHours(hours: Double) = change { it[Keys.standardHours] = hours }
+    suspend fun setTheme(mode: ThemeMode) = change { it[Keys.theme] = mode.name }
+    suspend fun setOvertimeMode(mode: OvertimeMode) = change { it[Keys.overtimeMode] = mode.name }
+    /** Phone-only: the API key never leaves the device, so it is not stamped. */
     suspend fun setHolidayApiKey(key: String) = store.edit { it[Keys.holidayApiKey] = key.trim() }
-    suspend fun setWeekendDays(days: Set<DayOfWeek>) = store.edit { it[Keys.weekendDays] = days.map { d -> d.name }.toSet() }
-    suspend fun setHolidaysSyncedAt(millis: Long) = store.edit { it[Keys.holidaysSyncedAt] = millis }
-    suspend fun setWorkWindow(startMinutes: Int, endMinutes: Int) = store.edit {
+    suspend fun setWeekendDays(days: Set<DayOfWeek>) = change { it[Keys.weekendDays] = days.map { d -> d.name }.toSet() }
+    suspend fun setHolidaysSyncedAt(millis: Long) = change { it[Keys.holidaysSyncedAt] = millis }
+    suspend fun setWorkWindow(startMinutes: Int, endMinutes: Int) = change {
         it[Keys.workStart] = startMinutes
         it[Keys.workEnd] = endMinutes
+    }
+
+    class SyncSnapshot(val settings: Settings, val updatedAt: Long, val dirty: Boolean)
+
+    suspend fun snapshot(): SyncSnapshot {
+        val p = store.data.first()
+        return SyncSnapshot(settings.first(), p[Keys.updatedAt] ?: 0L, p[Keys.dirty] ?: false)
+    }
+
+    /** Clears the dirty flag unless another change landed while the push was in flight. */
+    suspend fun markPushed(updatedAt: Long) = store.edit {
+        if ((it[Keys.updatedAt] ?: 0L) == updatedAt) it[Keys.dirty] = false
+    }
+
+    /** Overwrites the synced fields with a newer copy from the cloud. The API key is kept. */
+    suspend fun applyRemote(remote: Settings, updatedAt: Long) = store.edit {
+        remote.write(it)
+        it[Keys.updatedAt] = updatedAt
+        it[Keys.dirty] = false
     }
 }

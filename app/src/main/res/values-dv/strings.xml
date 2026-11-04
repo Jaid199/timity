@@ -116,4 +116,15 @@
     <string name="kind">ބާވަތް</string>
     <string name="search_holidays">ބަންދު ދުވަސްތައް ހޯދާ</string>
     <string name="no_matching_holidays">ހޯދި އެއްޗަކާ ގުޅޭ ބަންދު ދުވަހެއް ނެތް.</string>
+    <string name="cloud_backup">ކްލައުޑް ބެކަޕް</string>
+    <string name="cloud_backup_hint">ކޮންމެ ބަދަލަކަށްފަހު ސެޝަންތަކާއި، ބަންދު ދުވަސްތަކާއި، މުއްދަތުތަކާއި ސެޓިންގްސް ސުޕަބޭސްއަށް ކޮޕީކުރެވޭނެ، ފޯނު ގެއްލުނަސް ޑޭޓާ ރައްކާވެފައި ހުންނާނެ.</string>
+    <string name="cloud_sync_now">މިހާރު ސިންކްކުރޭ</string>
+    <string name="cloud_syncing">ސިންކްކުރަނީ…</string>
+    <string name="cloud_backed_up">ބެކަޕްކުރީ %1$s</string>
+    <string name="cloud_never">އަދި ބެކަޕެއް ނުކުރޭ.</string>
+    <string name="cloud_offline">އޮފްލައިން. ގުޅުނީމާ އަލުން މަސައްކަތްކުރާނެ.</string>
+    <string name="cloud_failed">ބެކަޕް ނުކުރެވުނު: %1$s</string>
+    <string name="cloud_not_configured">ސެޓަޕް ނުކުރޭ: .env އަށް SUPABASE_URL އާއި SUPABASE_PUBLISHABLE_KEY ލައި އަލުން ބިލްޑްކުރޭ.</string>
+    <string name="cloud_connected">ކްލައުޑާ ގުޅިފައި</string>
+    <string name="cloud_disconnected">ކްލައުޑާ ނުގުޅޭ</string>
 </resources>

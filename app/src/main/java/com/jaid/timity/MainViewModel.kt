@@ -3,14 +3,14 @@ package com.jaid.timity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.jaid.timity.data.AppDatabase
 import com.jaid.timity.data.Holiday
 import com.jaid.timity.data.HolidayApi
 import com.jaid.timity.data.OvertimeMode
 import com.jaid.timity.data.Rules
 import com.jaid.timity.data.WorkPeriod
 import com.jaid.timity.data.Settings
-import com.jaid.timity.data.SettingsRepository
+import com.jaid.timity.data.TimityRepository
+import com.jaid.timity.data.cloud.SyncManager
 import com.jaid.timity.data.ThemeMode
 import com.jaid.timity.data.TimeEntry
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -62,10 +62,15 @@ data class HistoryFilter(
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(app: Application) : AndroidViewModel(app) {
-    private val dao = AppDatabase.get(app).timeEntryDao()
-    private val holidayDao = AppDatabase.get(app).holidayDao()
-    private val periodDao = AppDatabase.get(app).workPeriodDao()
-    private val settingsRepo = SettingsRepository(app)
+    private val repo = TimityRepository.get(app)
+    private val dao = repo.entries
+    private val holidayDao = repo.holidays
+    private val periodDao = repo.periods
+    private val settingsRepo = repo.settings
+
+    /** Cloud backup status, shown in Settings. */
+    val cloudState: StateFlow<SyncManager.State> = SyncManager.state
+    fun syncCloud() = SyncManager.syncNow()
 
     val settings: StateFlow<Settings> = settingsRepo.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Settings())
@@ -95,8 +100,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val rules: StateFlow<Rules> = combine(settings, holidayDates, periods) { s, h, p -> Rules(s, h, p) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Rules())
 
-    fun savePeriod(p: WorkPeriod) = viewModelScope.launch { if (p.id == 0L) periodDao.insert(p) else periodDao.update(p) }
-    fun deletePeriod(p: WorkPeriod) = viewModelScope.launch { periodDao.delete(p) }
+    fun savePeriod(p: WorkPeriod) = viewModelScope.launch { repo.savePeriod(p) }
+    fun deletePeriod(p: WorkPeriod) = viewModelScope.launch { repo.deletePeriod(p) }
 
     sealed interface SyncState {
         data object Idle : SyncState
@@ -120,25 +125,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val year = LocalDate.now().year
         runCatching {
             val fetched = HolidayApi.fetch(key, "MV", year) + HolidayApi.fetch(key, "MV", year + 1)
-            val ids = holidayDao.insertAll(fetched)
+            val added = repo.insertHolidays(fetched)
             settingsRepo.setHolidaysSyncedAt(System.currentTimeMillis())
-            SyncState.Done(added = ids.count { it != -1L }, total = fetched.size)
+            SyncState.Done(added = added, total = fetched.size)
         }.onSuccess { _syncState.value = it }
             .onFailure { _syncState.value = SyncState.Failed(it.message ?: it.javaClass.simpleName) }
     }
 
     fun addHoliday(date: LocalDate, name: String, type: String = Holiday.TYPE_CUSTOM) = viewModelScope.launch {
-        holidayDao.insert(
-            Holiday(epochDay = date.toEpochDay(), name = name.trim(), type = type, source = Holiday.SOURCE_CUSTOM, enabled = true),
-        )
+        repo.addHoliday(date.toEpochDay(), name, type)
     }
 
     fun updateHoliday(h: Holiday, date: LocalDate, name: String, type: String = h.type) = viewModelScope.launch {
-        holidayDao.update(h.copy(epochDay = date.toEpochDay(), name = name.trim(), type = type))
+        repo.updateHoliday(h, date.toEpochDay(), name, type)
     }
 
-    fun setHolidayEnabled(h: Holiday, enabled: Boolean) = viewModelScope.launch { holidayDao.update(h.copy(enabled = enabled)) }
-    fun deleteHoliday(h: Holiday) = viewModelScope.launch { holidayDao.delete(h) }
+    fun setHolidayEnabled(h: Holiday, enabled: Boolean) = viewModelScope.launch { repo.setHolidayEnabled(h, enabled) }
+    fun deleteHoliday(h: Holiday) = viewModelScope.launch { repo.deleteHoliday(h) }
     fun setWeekendDays(days: Set<DayOfWeek>) = viewModelScope.launch { settingsRepo.setWeekendDays(days) }
     fun setHolidayApiKey(key: String) = viewModelScope.launch { settingsRepo.setHolidayApiKey(key) }
 
@@ -152,18 +155,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setFilter(f: HistoryFilter) { _filter.value = f }
 
     fun clockIn() = viewModelScope.launch {
-        if (openEntry.value == null) dao.insert(TimeEntry(clockIn = System.currentTimeMillis()))
+        if (openEntry.value == null) repo.saveEntry(TimeEntry(clockIn = System.currentTimeMillis()))
     }
 
     fun clockOut(note: String = "") = viewModelScope.launch {
-        openEntry.value?.let { dao.update(it.copy(clockOut = System.currentTimeMillis(), note = note.trim())) }
+        openEntry.value?.let { repo.saveEntry(it.copy(clockOut = System.currentTimeMillis(), note = note.trim())) }
     }
 
-    fun save(entry: TimeEntry) = viewModelScope.launch {
-        if (entry.id == 0L) dao.insert(entry) else dao.update(entry)
-    }
+    fun save(entry: TimeEntry) = viewModelScope.launch { repo.saveEntry(entry) }
 
-    fun delete(entry: TimeEntry) = viewModelScope.launch { dao.delete(entry) }
+    fun delete(entry: TimeEntry) = viewModelScope.launch { repo.deleteEntry(entry) }
 
     fun setOvertimeRate(rate: Double) = viewModelScope.launch { settingsRepo.setOvertimeRate(rate) }
     fun setStandardHours(hours: Double) = viewModelScope.launch { settingsRepo.setStandardHours(hours) }

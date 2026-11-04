@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -53,6 +55,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -64,6 +69,7 @@ import com.jaid.timity.data.OvertimeMode
 import com.jaid.timity.data.Ramadan
 import com.jaid.timity.data.ThemeMode
 import com.jaid.timity.data.WorkPeriod
+import com.jaid.timity.data.cloud.SyncManager
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -79,6 +85,7 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     val periods by vm.periods.collectAsStateWithLifecycle()
     val rules by vm.rules.collectAsStateWithLifecycle()
     val syncState by vm.syncState.collectAsStateWithLifecycle()
+    val cloudState by vm.cloudState.collectAsStateWithLifecycle()
 
     var rateText by rememberSaveable { mutableStateOf("") }
     var hoursText by rememberSaveable { mutableStateOf("") }
@@ -97,7 +104,11 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
 
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
         Spacer(Modifier.height(32.dp))
-        Text(stringResource(R.string.settings), style = MaterialTheme.typography.headlineSmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.settings), style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.width(10.dp))
+            CloudDot(cloudState)
+        }
         Spacer(Modifier.height(24.dp))
 
         OutlinedTextField(
@@ -402,10 +413,70 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                 onDelete = { vm.deleteHoliday(h); editing = null },
             ) { date, name, t -> vm.updateHoliday(h, date, name, t); editing = null }
         }
+
+        Spacer(Modifier.height(32.dp))
+        SectionLabel(stringResource(R.string.cloud_backup))
+        Spacer(Modifier.height(4.dp))
+        Hint(stringResource(R.string.cloud_backup_hint))
+        Spacer(Modifier.height(12.dp))
+        val cloud = cloudState
+        Button(
+            onClick = vm::syncCloud,
+            enabled = cloud !is SyncManager.State.Syncing && cloud !is SyncManager.State.Disabled,
+        ) {
+            if (cloud is SyncManager.State.Syncing) {
+                CircularProgressIndicator(Modifier.width(18.dp).height(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(stringResource(R.string.cloud_sync_now))
+        }
+        Spacer(Modifier.height(4.dp))
+        fun Long.formatSyncTime() = toLocalDate().formatDay() + " " + formatTime()
+        val cloudStatus = when (cloud) {
+            SyncManager.State.Disabled -> stringResource(R.string.cloud_not_configured)
+            is SyncManager.State.Syncing -> stringResource(R.string.cloud_syncing)
+            is SyncManager.State.Idle ->
+                if (cloud.lastSyncAt > 0L) stringResource(R.string.cloud_backed_up, cloud.lastSyncAt.formatSyncTime())
+                else stringResource(R.string.cloud_never)
+            is SyncManager.State.Error -> cloud.message?.let { stringResource(R.string.cloud_failed, it) }
+                ?: stringResource(R.string.cloud_offline)
+        }
+        Text(
+            cloudStatus,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (cloud is SyncManager.State.Error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
         Spacer(Modifier.height(32.dp))
     }
 }
 
+
+/** Cloud connection at a glance: green when the last sync succeeded, amber while syncing, red on failure, grey when off. */
+@Composable
+private fun CloudDot(state: SyncManager.State) {
+    val color = when (state) {
+        is SyncManager.State.Disabled -> MaterialTheme.colorScheme.outlineVariant
+        is SyncManager.State.Syncing -> Color(0xFFF9AB00)
+        is SyncManager.State.Idle -> if (state.lastSyncAt > 0L) Color(0xFF34A853) else MaterialTheme.colorScheme.outlineVariant
+        is SyncManager.State.Error -> MaterialTheme.colorScheme.error
+    }
+    val label = stringResource(
+        when (state) {
+            is SyncManager.State.Idle -> if (state.lastSyncAt > 0L) R.string.cloud_connected else R.string.cloud_never
+            is SyncManager.State.Syncing -> R.string.cloud_syncing
+            is SyncManager.State.Error -> R.string.cloud_disconnected
+            is SyncManager.State.Disabled -> R.string.cloud_not_configured
+        },
+    )
+    Box(
+        Modifier
+            .padding(top = 4.dp)
+            .size(10.dp)
+            .clip(CircleShape)
+            .background(color)
+            .semantics { contentDescription = label },
+    )
+}
 
 @Composable
 private fun PeriodRow(p: WorkPeriod, onClick: () -> Unit, onToggle: (Boolean) -> Unit, onDelete: () -> Unit) {
